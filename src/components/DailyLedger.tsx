@@ -195,5 +195,191 @@ export default function DailyLedger(props: DailyLedgerProps) {
 
            <div className="flex flex-col gap-2">
                <label className="text-xs text-on-surface-variant font-semibold">Topic</label>
-               <input type="text"
-    
+               <input type="text" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder="Syllabus entry node..." className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none" />
+           </div>
+
+           {props.logType === 'Revise' && (
+               <div className="flex flex-col gap-2 fade-in">
+                   <label className="text-xs text-tertiary font-bold tracking-wider uppercase">Revision Horizon</label>
+                   <div className="grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5">
+                       {['Quick Recap', 'Standard Review', 'Deep Dive'].map(depth => (
+                           <button key={depth} onClick={() => setRevisionDepth(depth)} className={`py-2 text-xs rounded-lg transition-all cursor-pointer ${revisionDepth === depth ? 'bg-tertiary/20 text-tertiary font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}>{depth}</button>
+                       ))}
+                   </div>
+               </div>
+           )}
+
+           {props.logType !== 'Exercise' ? (
+               <div className="grid grid-cols-2 gap-4">
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">Start Page</label>
+                       <input type="number" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none" />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">End Page</label>
+                       <input type="number" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none" />
+                   </div>
+               </div>
+           ) : (
+               <div className="grid grid-cols-3 gap-2">
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">VSAQ</label>
+                       <input type="number" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">SAQ</label>
+                       <input type="number" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">LAQ</label>
+                       <input type="number" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                   </div>
+               </div>
+           )}
+
+           <div className="grid grid-cols-4 gap-2">
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Active</label>
+                   <input type="number" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-primary" />
+               </div>
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Distract</label>
+                   <input type="number" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-error" />
+               </div>
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Recover</label>
+                   <input type="number" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-tertiary" />
+               </div>
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Retention</label>
+                   <input type="number" min="1" max="10" value={props.logRetention} onChange={e => props.setLogRetention(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-amber-400" />
+               </div>
+           </div>
+
+           <div className="flex flex-col gap-2 border-t border-white/5 pt-4">
+               <div className="flex items-center justify-between">
+                   <label className="text-xs text-amber-400 font-bold tracking-wider uppercase flex items-center gap-1">
+                       <span className="material-symbols-outlined text-[16px]">gavel</span>
+                       Friction Point Analysis *
+                   </label>
+                   <button type="button" onClick={() => setShowScratchpad(true)} className="flex items-center gap-1 text-[10px] bg-amber-400/10 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/20 transition-colors font-bold cursor-pointer border border-amber-400/20">
+                       <span className="material-symbols-outlined text-[14px]">draw</span>
+                       Digital Scratchpad
+                   </button>
+               </div>
+               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="Pinpoint equation breakdowns or concepts that cost time (Min 10 characters)..." className="w-full bg-surface-container-lowest border border-amber-400/20 focus:border-amber-400/50 rounded-xl p-3 text-sm outline-none text-on-surface transition-colors" />
+           </div>
+
+           <div className="flex flex-col gap-2">
+               <label className="text-xs text-on-surface-variant font-semibold">Notes</label>
+               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder="General log annotations..." className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none" />
+           </div>
+
+           <button onClick={handleSaveLog} className="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold text-sm tracking-wide shadow-md transition-all active:scale-[0.99] cursor-pointer">Commit Logs to Database Pipeline</button>
+        </div>
+
+        {/* Floating Digital Scratchpad Canvas Modal - With Contextually Typed Inline Events */}
+        {showScratchpad && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm fade-in">
+                <div className="glass-panel w-full max-w-2xl h-[60vh] rounded-3xl flex flex-col overflow-hidden border border-white/10 shadow-2xl relative bg-[#0a0f18]">
+                    <div className="flex justify-between items-center p-4 border-b border-white/10 bg-surface-container-lowest">
+                        <div className="flex items-center gap-2 text-primary font-bold">
+                            <span className="material-symbols-outlined">draw</span> Cognitive Scratchpad
+                        </div>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={clearCanvas} className="text-xs bg-surface-container px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors cursor-pointer border border-white/5">Clear Canvas</button>
+                            <button type="button" onClick={() => setShowScratchpad(false)} className="text-on-surface-variant hover:text-white cursor-pointer p-2"><span className="material-symbols-outlined">close</span></button>
+                        </div>
+                    </div>
+                    <canvas 
+                        ref={canvasRef} 
+                        onMouseDown={(e) => {
+                            if (!canvasRef.current) return;
+                            isDrawing.current = true;
+                            const rect = canvasRef.current.getBoundingClientRect();
+                            const ctx = canvasRef.current.getContext('2d');
+                            if (ctx) {
+                                ctx.beginPath();
+                                ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+                            }
+                        }}
+                        onMouseMove={(e) => {
+                            if (!isDrawing.current || !canvasRef.current) return;
+                            const rect = canvasRef.current.getBoundingClientRect();
+                            const ctx = canvasRef.current.getContext('2d');
+                            if (ctx) {
+                                ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                                ctx.stroke();
+                            }
+                        }}
+                        onMouseUp={() => { isDrawing.current = false; }}
+                        onMouseLeave={() => { isDrawing.current = false; }}
+                        onTouchStart={(e) => {
+                            if (!canvasRef.current || e.touches.length === 0) return;
+                            isDrawing.current = true;
+                            const rect = canvasRef.current.getBoundingClientRect();
+                            const ctx = canvasRef.current.getContext('2d');
+                            if (ctx) {
+                                ctx.beginPath();
+                                ctx.moveTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+                            }
+                        }}
+                        onTouchMove={(e) => {
+                            if (!isDrawing.current || !canvasRef.current || e.touches.length === 0) return;
+                            const rect = canvasRef.current.getBoundingClientRect();
+                            const ctx = canvasRef.current.getContext('2d');
+                            if (ctx) {
+                                ctx.lineTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+                                ctx.stroke();
+                            }
+                        }}
+                        onTouchEnd={() => { isDrawing.current = false; }}
+                        className="flex-1 w-full cursor-crosshair touch-none" 
+                    />
+                </div>
+            </div>
+        )}
+
+        <div className="flex flex-col gap-4 mt-2">
+            <h3 className="font-headline text-lg font-bold text-on-surface">Session Logs Confirmed Today</h3>
+            {props.loggedSessions.length === 0 ? (
+                <p className="text-xs text-on-surface-variant font-medium italic">No activity logs recorded inside this deployment session.</p>
+            ) : (
+                <div className="flex flex-col gap-3">
+                   {props.loggedSessions.map((log) => {
+                       const conf = getSubjectConfig(log.subject);
+                       const score = getFocusScore(log);
+                       let metricsText = '';
+                       if (log.startPage || log.endPage) metricsText = `Pages: ${log.startPage || 0}-${log.endPage || 0}`;
+                       if (log.vsaCount || log.saCount) metricsText = `VSAQ: ${log.vsaCount || 0} | SAQ: ${log.saCount || 0} | LAQ: ${log.laCount || 0}`;
+                       
+                       return (
+                          <div key={log.id} className="p-4 rounded-2xl bg-surface-container border border-white/5 flex flex-col gap-2 glass-panel">
+                              <div className="flex justify-between items-start">
+                                  <div>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${conf.bg} text-background mr-2`}>{conf.name}</span>
+                                      <span className="text-xs text-on-surface-variant font-mono bg-surface-container-lowest px-2 py-0.5 rounded">{log.sessionType}</span>
+                                  </div>
+                                  <span className="text-xs font-bold text-on-surface-variant">Focus Score: <span className="text-[#50C878]">{score}%</span></span>
+                              </div>
+                              <h4 className="text-on-surface font-semibold text-md">{log.topic}</h4>
+                              {log.frictionAnalysis && (
+                                  <p className="text-xs text-amber-400 bg-amber-400/5 p-2 rounded-lg border border-amber-400/10">
+                                      <strong>Friction Analysis:</strong> {log.frictionAnalysis}
+                                  </p>
+                              )}
+                              <div className="flex flex-wrap gap-4 text-xs text-on-surface-variant mt-1">
+                                  {metricsText && <span className="flex items-center gap-1 text-on-surface font-semibold"><span className="material-symbols-outlined text-[14px] text-primary">menu_book</span> {metricsText}</span>}
+                                  <span>{log.activeMins}m Active</span>
+                                  <span>{log.distractionMins}m Dist</span>
+                                  <span>Retention: {log.retentionScore}/10</span>
+                              </div>
+                          </div>
+                       );
+                   })}
+                </div>
+            )}
+        </div>
+    </section>
+  );
+}
