@@ -41,386 +41,49 @@ interface DailyLedgerProps {
   setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
 }
 
-export default function DailyLedger({
-    morningPlan, setMorningPlan, loggedSessions, setLoggedSessions,
-    logSubject, setLogSubject, logTopic, setLogTopic,
-    logType, setLogType, logActive, setLogActive,
-    logDistract, setLogDistract, logRecover, setLogRecover,
-    logRetention, setLogRetention,
-    logNotes, setLogNotes, logActivePlanId, setLogActivePlanId,
-    logStartPage, setLogStartPage, logEndPage, setLogEndPage,
-    logVsa, setLogVsa, logSa, setLogSa, logLa, setLogLa,
-    userSettings, setUserSettings
-}: DailyLedgerProps) {
-
-  const [logFriction, setLogFriction] = React.useState('');
-  const [logRevisionType, setLogRevisionType] = React.useState('Standard Review');
-  const [extractInput, setExtractInput] = React.useState('');
+export default function DailyLedger(props: DailyLedgerProps) {
+  const [autoFillInput, setAutoFillInput] = React.useState('');
   const [isExtracting, setIsExtracting] = React.useState(false);
-  const [logError, setLogError] = React.useState('');
+  const [frictionText, setFrictionText] = React.useState('');
+  const [revisionDepth, setRevisionDepth] = React.useState('Standard Review');
 
-  const handleExtractAI = async () => {
-    if (!extractInput.trim()) return;
-    setIsExtracting(true);
-    setLogError('');
-    try {
-        const apiKey = localStorage.getItem('gemini_api_key') || (import.meta as any).env.VITE_GEMINI_API_KEY;
-        if (!apiKey) throw new Error("Missing Gemini API Key");
-        
-        const reqBody = {
-            contents: [{ parts: [{ text: `Extract JSON metrics from this text: "${extractInput}". Schema required (integer values only): { "retentionScore": X, "vsaqCount": X, "saqCount": X, "activeMins": X, "distractionMins": X }. Return ONLY JSON, no markdown formatting.` }] }]
-        };
-        const reqBody = {
-            contents: [{ parts: [{ text: `Extract analytics metrics from this text string: "${extractInput}". 
-            Required output schema format: { "retentionScore": number, "vsaqCount": number, "saqCount": number, "laqCount": number, "activeMins": number, "distractionMins": number, "startPage": number, "endPage": number, "frictionPoint": "string" }. 
-            Return clean, raw JSON data strings only. Completely avoid backticks or markdown containers.` }] }]
-        };
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reqBody)
-        });
-        if (!res.ok) throw new Error(`API responded with status: ${res.status}`);
-        const data = await res.json();
-        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        const cleanedText = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(cleanedText);
-        
-        // Comprehensive parameter extraction loop mapping out your input elements
-        if (parsed.retentionScore) setLogRetention(parsed.retentionScore.toString());
-        if (parsed.vsaqCount) setLogVsa(parsed.vsaqCount.toString());
-        if (parsed.saqCount) setLogSa(parsed.saqCount.toString());
-        if (parsed.laqCount) setLogLa(parsed.laqCount.toString());
-        if (parsed.activeMins) setLogActive(parsed.activeMins.toString());
-        if (parsed.distractionMins) setLogDistract(parsed.distractionMins.toString());
-        if (parsed.startPage) setLogStartPage(parsed.startPage.toString());
-        if (parsed.endPage) setLogEndPage(parsed.endPage.toString());
-        if (parsed.frictionPoint) setLogFriction(parsed.frictionPoint);
-        
-        setLogNotes(extractInput);
-        setExtractInput('');
-    } catch(err: any) {
-        setLogError(`AI Extraction Error: ${err.message}`);
-    } finally {
-        setIsExtracting(false);
-    }
-  };
-
-  const handleLogSession = () => {
-    if (!logTopic.trim()) { setLogError("Topic is required."); return; }
-    if (logFriction.trim().length < 10) { 
-        setLogError("You must identify what caused the most friction or time drain in this session. (Min 10 chars)"); 
-        return; 
-    }
-    
-    setLoggedSessions(prev => [...prev, {
-        id: nanoid(),
-        planId: logActivePlanId || undefined,
-        associatedPlanId: logActivePlanId || undefined, // Used for synchronization
-        subject: logSubject || 'General',
-        topic: logTopic.trim(),
-        sessionType: logType,
-        revisionType: logType === 'Revise' ? logRevisionType : undefined,
-        
-        startPage: (logType === 'Study' || logType === 'Revise') ? (Number(logStartPage) || 0) : undefined,
-        endPage: (logType === 'Study' || logType === 'Revise') ? (Number(logEndPage) || 0) : undefined,
-        vsaCount: logType === 'Exercise' ? (Number(logVsa) || 0) : undefined,
-        saCount: logType === 'Exercise' ? (Number(logSa) || 0) : undefined,
-        laCount: logType === 'Exercise' ? (Number(logLa) || 0) : undefined,
-        
-        activeMins: Number(logActive) || 0,
-        distractionMins: Number(logDistract) || 0,
-        recoveryMins: Number(logRecover) || 0,
-        retentionScore: Number(logRetention) || 5,
-        frictionAnalysis: logFriction.trim(),
-        notes: logNotes,
-        isMissed: false
-    }]);
-
-    if (logActivePlanId && setMorningPlan) {
-        setMorningPlan(plans => plans.map(p => p.id === logActivePlanId ? { ...p, status: 'completed' } : p));
-    }
-
-    setLogTopic('');
-    setLogActive('0');
-    setLogDistract('0');
-    setLogRecover('0');
-    setLogRetention('5');
-    setLogStartPage('0');
-    setLogEndPage('0');
-    setLogVsa('0');
-    setLogSa('0');
-    setLogLa('0');
-    setLogNotes('');
-    setLogFriction('');
-    setLogError('');
-    setLogActivePlanId(null);
-  };
-
-  const handleEditLog = (log: LogItem) => {
-    setLoggedSessions(prev => prev.filter(l => l.id !== log.id));
-
-    setLogActivePlanId(log.planId || null);
-    setLogSubject(log.subject);
-    setLogTopic(log.topic);
-    setLogType(log.sessionType);
-    if (log.revisionType) setLogRevisionType(log.revisionType);
-    
-    if (log.sessionType === 'Exercise') {
-        setLogVsa(log.vsaCount?.toString() || '0');
-        setLogSa(log.saCount?.toString() || '0');
-        setLogLa(log.laCount?.toString() || '0');
-    } else {
-        setLogStartPage(log.startPage?.toString() || '0');
-        setLogEndPage(log.endPage?.toString() || '0');
-    }
-
-    setLogActive(log.activeMins.toString());
-    setLogDistract(log.distractionMins.toString());
-    setLogRecover(log.recoveryMins.toString());
-    setLogRetention(log.retentionScore?.toString() || '5');
-    setLogNotes(log.notes);
-  };
-
-  const calculateStats = () => {
-      let totalScore = 0;
-      let ratedSessions = 0;
-      let totalPages = 0;
-      let totalActiveMinsForPages = 0;
+  const handleSaveLog = () => {
+      if (!props.logTopic.trim()) return;
       
-      loggedSessions.forEach(log => {
-          totalScore += getFocusScore(log);
-          ratedSessions++;
-          
-          if (!log.isMissed && (log.sessionType === 'Study' || log.sessionType === 'Revise') && log.startPage !== undefined && log.endPage !== undefined) {
-              const pages = Math.max(0, log.endPage - log.startPage + 1);
-              totalPages += pages;
-              totalActiveMinsForPages += log.activeMins;
-          }
-      });
-      const avgScore = ratedSessions > 0 ? Math.round(totalScore / ratedSessions) : 0;
-      const timePerPage = totalPages > 0 ? (totalActiveMinsForPages / totalPages).toFixed(1) : '0';
+      if (!frictionText.trim() || frictionText.trim().length < 10) {
+          alert("Metacognitive Review: Please log your Friction Point Analysis (min 10 characters) detailing any conceptual blockages before submitting.");
+          return;
+      }
 
-      return { avgScore, timePerPage };
-  };
+      const newLog: LogItem = {
+          id: nanoid(),
+          associatedPlanId: props.logActivePlanId || undefined,
+          subject: props.logSubject,
+          topic: props.logTopic.trim(),
+          sessionType: props.logType,
+          revisionType: props.logType === 'Revise' ? revisionDepth : undefined,
+          activeMins: Number(props.logActive) || 0,
+          distractionMins: Number(props.logDistract) || 0,
+          recoveryMins: Number(props.logRecover) || 0,
+          retentionScore: Number(props.logRetention) || 5,
+          startPage: props.logType !== 'Exercise' && Number(props.logStartPage) ? Number(props.logStartPage) : undefined,
+          endPage: props.logType !== 'Exercise' && Number(props.logEndPage) ? Number(props.logEndPage) : undefined,
+          vsaCount: props.logType === 'Exercise' && Number(props.logVsa) ? Number(props.logVsa) : undefined,
+          saCount: props.logType === 'Exercise' && Number(props.logSa) ? Number(props.logSa) : undefined,
+          laCount: props.logType === 'Exercise' && Number(props.logLa) ? Number(props.logLa) : undefined,
+          frictionAnalysis: frictionText.trim(),
+          notes: props.logNotes.trim(),
+          synced: false
+      };
 
-  const { avgScore, timePerPage } = calculateStats();
-
-  return (
-    <section className="flex flex-col gap-6 w-full fade-in">
-      <h2 className="font-headline text-headline-md text-on-surface font-bold">Daily Ledger</h2>
-
-       {/* DAILY STATS BANNER */}
-       <div className="glass-panel ghost-border p-4 flex gap-4 bg-gradient-to-br from-surface-container-lowest to-surface-container-low shadow-lg">
-           <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5">
-               <span className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-1">Avg Focus</span>
-               <span className={`text-3xl font-headline font-bold ${avgScore >= 80 ? 'text-tertiary-container' : avgScore >= 50 ? 'text-primary' : 'text-error'}`}>{avgScore}%</span>
-           </div>
-           <div className="flex-1 flex flex-col items-center justify-center">
-               <span className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-1">Time per Page</span>
-               <span className="text-3xl font-headline font-bold text-on-surface">{timePerPage}<span className="text-sm text-on-surface-variant ml-1 font-normal">m</span></span>
-           </div>
-       </div>
+      props.setLoggedSessions(prev => [...prev, newLog]);
       
-      <div className="glass-panel ghost-border p-6 flex flex-col gap-6 bg-surface-container-low">
-        <h3 className="font-headline text-lg text-on-surface font-medium border-b border-white/5 pb-2">Log Session</h3>
-        
-        <div className="bg-surface-container-lowest p-1 rounded-full flex justify-between">
-          {(['Study', 'Revise', 'Exercise'] as SessionMode[]).map(type => (
-             <button 
-               key={type}
-               onClick={() => setLogType(type)}
-               className={`flex-1 py-1 px-1 text-center rounded-full text-xs font-medium transition-colors cursor-pointer ${logType === type ? 'bg-primary/20 text-primary-fixed' : 'text-on-surface-variant hover:bg-surface-container-high/50'}`}>
-               {type}
-             </button>
-          ))}
-        </div>
+      if (props.logActivePlanId && props.setMorningPlan) {
+          props.setMorningPlan(prev => prev.map(p => p.id === props.logActivePlanId ? { ...p, status: 'completed' } : p));
+      }
 
-        {logType === 'Revise' && (
-          <div>
-              <label className="block text-label-sm text-on-surface-variant mb-2">Revision Depth</label>
-              <select 
-                  value={logRevisionType} 
-                  onChange={e => setLogRevisionType(e.target.value)}
-                  className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-3 text-sm text-on-surface focus:border-primary/50 focus:outline-none transition-colors"
-               >
-                  <option value="Quick Recap">Quick Recap</option>
-                  <option value="Standard Review">Standard Review</option>
-                  <option value="Large Session / Deep Dive">Large Session / Deep Dive</option>
-              </select>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-4">
-            <div>
-               <label className="block text-label-sm text-on-surface-variant mb-2">Subject</label>
-               <input 
-                 list="logger-subjects"
-                 value={logSubject}
-                 onChange={e => setLogSubject(e.target.value)}
-                 placeholder="Select or type subject"
-                 className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-3 text-sm text-on-surface focus:border-primary/50 focus:outline-none transition-colors" 
-               />
-               <datalist id="logger-subjects">
-                   {userSettings.activeSubjects.map(sub => (
-                       <option key={sub} value={sub}>{getSubjectConfig(sub).name}</option>
-                   ))}
-               </datalist>
-            </div>
-            <div>
-              <label className="block text-label-sm text-on-surface-variant mb-2 truncate">Topic {logActivePlanId ? '(From Plan)' : ''}</label>
-              <input type="text" value={logTopic} onChange={e=>setLogTopic(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-3 text-sm text-on-surface focus:border-primary/50 focus:outline-none transition-colors placeholder:text-on-surface-variant/50" placeholder="Required" />
-            </div>
-        </div>
-
-        {(logType === 'Study' || logType === 'Revise') ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-label-sm text-on-surface-variant mb-2">Start Page</label>
-                <input type="number" value={logStartPage} onChange={e=>setLogStartPage(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-primary/50 focus:ring-0 focus:outline-none transition-colors" />
-              </div>
-              <div>
-                <label className="block text-label-sm text-on-surface-variant mb-2">End Page</label>
-                <input type="number" value={logEndPage} onChange={e=>setLogEndPage(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-primary/50 focus:ring-0 focus:outline-none transition-colors" />
-              </div>
-            </div>
-        ) : (
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-label-sm text-on-surface-variant mb-2">VSA (Very Short)</label>
-                <input type="number" value={logVsa} onChange={e=>setLogVsa(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-primary/50 focus:ring-0 focus:outline-none transition-colors" />
-              </div>
-              <div>
-                <label className="block text-label-sm text-on-surface-variant mb-2">SA (Short)</label>
-                <input type="number" value={logSa} onChange={e=>setLogSa(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-primary/50 focus:ring-0 focus:outline-none transition-colors" />
-              </div>
-              <div>
-                <label className="block text-label-sm text-on-surface-variant mb-2">LA (Long)</label>
-                <input type="number" value={logLa} onChange={e=>setLogLa(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-primary/50 focus:ring-0 focus:outline-none transition-colors" />
-              </div>
-            </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-label-sm text-on-surface-variant mb-2">Active Mins</label>
-            <input type="number" value={logActive} onChange={e=>setLogActive(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-tertiary-container/50 focus:ring-0 focus:outline-none transition-colors" />
-          </div>
-          <div>
-            <label className="block text-label-sm text-on-surface-variant mb-2">Distract</label>
-            <input type="number" value={logDistract} onChange={e=>setLogDistract(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-error/50 focus:ring-0 focus:outline-none transition-colors" />
-          </div>
-          <div>
-            <label className="block text-label-sm text-on-surface-variant mb-2">Recov Mins</label>
-            <input type="number" value={logRecover} onChange={e=>setLogRecover(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-primary-container/50 focus:ring-0 focus:outline-none transition-colors" />
-          </div>
-        </div>
-
-        <div>
-            <div className="flex justify-between items-center mb-2">
-                <label className="block text-label-sm text-on-surface-variant">Retention Score</label>
-                <span className="font-bold text-primary">{logRetention}/10</span>
-            </div>
-            <input 
-                type="range" 
-                min="1" max="10" 
-                value={logRetention} 
-                onChange={e=>setLogRetention(e.target.value)} 
-                className="w-full accent-primary" 
-            />
-        </div>
-
-        <div>
-          <label className="block text-label-sm text-on-surface-variant mb-2">Raw Cognitive Notes</label>
-          <div className="flex flex-col gap-2 relative">
-              <textarea 
-                value={extractInput} 
-                onChange={e => setExtractInput(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-tertiary-container/50 focus:ring-0 focus:outline-none transition-colors placeholder:text-on-surface-variant/50 resize-none font-body" 
-                placeholder="Describe your session to auto-fill metrics via AI, or just type notes directly below..." 
-                rows={2}
-               ></textarea>
-               <button 
-                onClick={handleExtractAI}
-                disabled={isExtracting}
-                className={`absolute right-2 bottom-2 px-3 py-1 text-xs font-bold rounded-md bg-tertiary-container text-on-tertiary-container hover:opacity-80 transition-opacity ${isExtracting ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
-               >
-                 {isExtracting ? 'Extracting...' : 'Auto-Fill Details'}
-               </button>
-          </div>
-          <textarea 
-            value={logNotes} 
-            onChange={e=>setLogNotes(e.target.value)}
-            className="w-full mt-2 bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 text-on-surface focus:border-primary/50 focus:ring-0 focus:outline-none transition-colors placeholder:text-on-surface-variant/50 resize-none font-body" 
-            placeholder="Log insights, mental blocks, or immediate next steps..." 
-            rows={3}></textarea>
-        </div>
-
-        <div>
-           <label className="block text-label-sm text-on-surface-variant mb-2 text-error">Friction Point Analysis *</label>
-           <textarea 
-            value={logFriction} 
-            onChange={e=>setLogFriction(e.target.value)}
-            className="w-full bg-surface-container-lowest border border-error/30 rounded-lg p-4 text-on-surface focus:border-error focus:ring-0 focus:outline-none transition-colors placeholder:text-on-surface-variant/50 resize-none font-body" 
-            placeholder="What caused the most friction or time drain in this session? (required, min 10 chars)" 
-            rows={2}></textarea>
-        </div>
-
-        {logError && <div className="text-sm font-medium text-error p-3 bg-error/10 rounded-lg">{logError}</div>}
-
-        <button onClick={handleLogSession} className="w-full rounded-full py-3 text-on-surface cursor-pointer bg-white/10 hover:bg-white/20 backdrop-blur-md font-medium text-sm transition-colors border border-white/5">
-            Log Session Data
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-4 mt-4">
-        {loggedSessions.length === 0 && <p className="text-on-surface-variant text-sm border border-dashed border-white/10 rounded-xl p-4 text-center">No logged sessions today.</p>}
-        {loggedSessions.slice().reverse().map(log => {
-            const conf = getSubjectConfig(log.subject);
-            const score = getFocusScore(log);
-            let metricsText = '';
-            if (log.sessionType === 'Exercise') {
-                const intensity = (log.vsaCount || 0) * 1 + (log.saCount || 0) * 3 + (log.laCount || 0) * 7;
-                metricsText = `${intensity} Intensity Points`;
-            } else if (log.startPage !== undefined && log.endPage !== undefined) {
-                const pages = Math.max(0, log.endPage - log.startPage + 1);
-                metricsText = `${pages} Pages`;
-            }
-
-            return (
-              <div key={log.id} className="glass-panel ghost-border p-5 flex flex-col gap-4 bg-surface-container-highest relative overflow-hidden transition-all shadow-sm">
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${conf.bg}`}></div>
-                
-                <div className="flex justify-between items-start pl-2">
-                  <div>
-                    <span className={`text-xs font-bold ${conf.text} uppercase tracking-wider mb-1 block`}>{conf.name} {log.isMissed && ' - MISSED'} <span className="ml-2 text-on-surface-variant bg-surface-container-lowest px-2 py-0.5 rounded-sm">{log.sessionType}</span></span>
-                    <h4 className="text-on-surface font-semibold text-lg">{log.topic}</h4>
-                  </div>
-                  <button onClick={() => handleEditLog(log)} className="text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">
-                    <span className="material-symbols-outlined text-[20px]">edit</span>
-                  </button>
-                </div>
-
-                <div className="pl-2">
-                  <div className="flex justify-between text-xs text-on-surface-variant mb-1">
-                    <span>Focus Score</span>
-                    <span className="text-[#50C878] font-bold">{score}%</span>
-                  </div>
-                  <div className="w-full bg-surface-container-lowest rounded-full h-2 overflow-hidden">
-                    <div className={`bg-gradient-to-r ${conf.from} to-[#50C878] h-full rounded-full transition-all`} style={{ width: `${score}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="pl-2 flex gap-4 text-sm text-on-surface-variant mt-1 flex-wrap">
-                  {metricsText && <span className="flex items-center gap-1 font-semibold text-on-surface"><span className="material-symbols-outlined text-[16px] text-tertiary-container">library_books</span> {metricsText}</span>}
-                  <span className="flex items-center gap-1"><span className={`material-symbols-outlined text-[16px] ${log.isMissed ? 'text-error' : 'text-[#50C878]'}`}>{log.isMissed ? 'cancel' : 'check_circle'}</span> {log.activeMins}m Active</span>
-                  <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px] text-error">warning</span> {log.distractionMins}m Dist</span>
-                  {log.synced && <span className="flex items-center gap-1 ml-auto text-primary"><span className="material-symbols-outlined text-[16px]">sync</span> Synced</span>}
-                </div>
-              </div>
-            );
-        })}
-      </div>
-    </section>
-  );
-}
+      props.setLogTopic('');
+      props.setLogActivePlanId(null);
+      props.setLogActive('0');
+      props.setLogDistract('0');\n      props.setLogRecover('0');\n      props.setLogNotes('');\n      setFrictionText('');\n      props.setLogStartPage('0');\n      props.setLogEndPage('0');\n      props.setLogVsa('0');\n      props.setLogSa('0');\n      props.setLogLa('0');\n  };\n\n  const handleExtractAI = async () => {\n      if (!autoFillInput.trim()) return;\n      const apiKey = localStorage.getItem('gemini_api_key');\n      if (!apiKey) {\n          alert("Configure your Gemini API Key in the profile tab first.");\n          return;\n      }\n      \n      setIsExtracting(true);\n      try {\n          const reqBody = {\n              contents: [{ parts: [{ text: `Extract data fields from this text: \"${autoFillInput}\". Output format: { \"topic\": \"string\", \"activeMins\": number, \"distractionMins\": number, \"startPage\": number, \"endPage\": number, \"vsaqCount\": number, \"saqCount\": number, \"laqCount\": number, \"retentionScore\": number, \"frictionPoint\": \"string\" }. Return raw JSON only.` }] }]\n          };\n          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {\n              method: 'POST',\n              headers: { 'Content-Type': 'application/json' },\n              body: JSON.stringify(reqBody)\n          });\n          const data = await res.json();\n          const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\n          const parsed = JSON.parse(textResponse.replace(/\\`\\`\\`json|\\`\\`\\`/g, '').trim());\n          \n          if (parsed.topic) props.setLogTopic(parsed.topic);\n          if (parsed.activeMins) props.setLogActive(String(parsed.activeMins));\n          if (parsed.distractionMins) props.setLogDistract(String(parsed.distractionMins));\n          if (parsed.startPage) props.setLogStartPage(String(parsed.startPage));\n          if (parsed.endPage) props.setLogEndPage(String(parsed.endPage));\n          if (parsed.vsaqCount) props.setLogVsa(String(parsed.vsaqCount));\n          if (parsed.saqCount) props.setLogSa(String(parsed.saqCount));\n          if (parsed.laqCount) props.setLogLa(String(parsed.laqCount));\n          if (parsed.retentionScore) props.setLogRetention(String(parsed.retentionScore));\n          if (parsed.frictionPoint) setFrictionText(parsed.frictionPoint);\n          \n          setAutoFillInput('');\n      } catch(e) {\n          alert("AI extraction failed to parse input.");\n      } finally {\n          setIsExtracting(false);\n      }\n  };\n\n  return (\n    <section className=\"flex flex-col gap-6 w-full fade-in\">\n        <h2 className=\"font-headline text-headline-md text-on-surface font-bold\">Logging Dashboard</h2>\n        <div className=\"glass-panel ghost-border p-6 bg-surface-container-low flex flex-col gap-6\">\n           <div className=\"flex flex-col gap-2\">\n               <label className=\"text-xs text-primary font-bold tracking-wider uppercase\">Telemetry AI Auto-Fill</label>\n               <div className=\"flex gap-2\">\n                   <input type=\"text\" value={autoFillInput} onChange={e => setAutoFillInput(e.target.value)} placeholder=\"e.g., Physics block 45 mins pages 10 to 20 retention 8\" className=\"flex-1 bg-surface-container-lowest border border-white/5 rounded-xl px-4 py-3 text-sm text-on-surface outline-none\" />\n                   <button onClick={handleExtractAI} disabled={isExtracting || !autoFillInput.trim()} className=\"px-4 bg-primary text-on-primary-fixed rounded-xl text-xs font-bold transition-all\">{isExtracting ? 'Parsing...' : 'Process'}</button>\n               </div>\n           </div>\n\n           <div className=\"grid grid-cols-1 md:grid-cols-2 gap-4\">\n               <div className=\"flex flex-col gap-2\">\n                   <label className=\"text-xs text-on-surface-variant font-semibold\">Subject Area</label>\n                   <select value={props.logSubject} onChange={e => props.setLogSubject(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none\">\n                       {props.userSettings.activeSubjects.map(sub => (\n                           <option key={sub} value={sub}>{getSubjectConfig(sub).name}</option>\n                       ))}\n                   </select>\n               </div>\n               <div className=\"flex flex-col gap-2\">\n                   <label className=\"text-xs text-on-surface-variant font-semibold\">Session Modality</label>\n                   <div className=\"grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5\">\n                       {(['Study', 'Revise', 'Exercise'] as SessionMode[]).map(m => (\n                           <button key={m} onClick={() => props.logType !== m && props.setLogType(m)} className={`py-2 text-xs font-bold rounded-lg transition-all ${props.logType === m ? 'bg-primary text-on-primary-fixed' : 'text-on-surface-variant'}`}>{m}</button>\n                       ))}\n                   </div>\n               </div>\n           </div>\n\n           <div className=\"flex flex-col gap-2\">\n               <label className=\"text-xs text-on-surface-variant font-semibold\">Topic</label>\n               <input type=\"text\" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder=\"Syllabus entry node...\" className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none\" />\n           </div>\n\n           {props.logType === 'Revise' && (\n               <div className=\"flex flex-col gap-2\">\n                   <label className=\"text-xs text-tertiary font-bold tracking-wider uppercase\">Revision Horizon</label>\n                   <div className=\"grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5\">\n                       {['Quick Recap', 'Standard Review', 'Deep Dive'].map(depth => (\n                           <button key={depth} onClick={() => setRevisionDepth(depth)} className={`py-2 text-xs rounded-lg transition-all ${revisionDepth === depth ? 'bg-emerald-500/20 text-on-surface font-bold' : 'text-on-surface-variant'}`}>{depth}</button>\n                       ))}\n                   </div>\n               </div>\n           )}\n\n           {props.logType !== 'Exercise' ? (\n               <div className=\"grid grid-cols-2 gap-4\">\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">Start Page</label>\n                       <input type=\"number\" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none\" />\n                   </div>\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">End Page</label>\n                       <input type=\"number\" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none\" />\n                   </div>\n               </div>\n           ) : (\n               <div className=\"grid grid-cols-3 gap-2\">\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">VSAQ</label>\n                       <input type=\"number\" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none\" />\n                   </div>\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">SAQ</label>\n                       <input type=\"number\" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none\" />\n                   </div>\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">LAQ</label>\n                       <input type=\"number\" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none\" />\n                   </div>\n               </div>\n           )}\n\n           <div className=\"grid grid-cols-4 gap-2\">\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Active</label>\n                   <input type=\"number\" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-primary\" />\n               </div>\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Distract</label>\n                   <input type=\"number\" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-error\" />\n               </div>\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Recover</label>\n                   <input type=\"number\" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-tertiary\" />\n               </div>\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Retention</label>\n                   <input type=\"number\" min=\"1\" max=\"10\" value={props.logRetention} onChange={e => props.setLogRetention(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-amber-400\" />\n               </div>\n           </div>\n\n           <div className=\"flex flex-col gap-2 border-t border-white/5 pt-4\">\n               <label className=\"text-xs text-amber-400 font-bold tracking-wider uppercase flex items-center gap-1\">\n                   <span className=\"material-symbols-outlined text-[16px]\">gavel</span>\n                   Friction Point Analysis *\n               </label>\n               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder=\"Pinpoint equation breakdowns or concepts that cost time (Min 10 characters)...\" className=\"w-full bg-surface-container-lowest border border-amber-400/20 rounded-xl p-3 text-sm outline-none text-on-surface\" />\n           </div>\n\n           <div className=\"flex flex-col gap-2\">\n               <label className=\"text-xs text-on-surface-variant font-semibold\">Notes</label>\n               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder=\"General log annotations...\" className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none\" />\n           </div>\n\n           <button onClick={handleSaveLog} className=\"w-full py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold text-sm tracking-wide shadow-md transition-all active:scale-[0.99]\">Commit Logs to Database Pipeline</button>\n        </div>\n\n        <div className=\"flex flex-col gap-4 mt-2\">\n            <h3 className=\"font-headline text-lg font-bold text-on-surface\">Session Logs Confirmed Today</h3>\n            {props.loggedSessions.length === 0 ? (\n                <p className=\"text-xs text-on-surface-variant font-medium italic\">No activity logs recorded inside this deployment session.</p>\n            ) : (\n                <div className=\"flex flex-col gap-3\">\n                   {props.loggedSessions.map((log) => {\n                       const conf = getSubjectConfig(log.subject);\n                       const score = getFocusScore(log);\n                       let metricsText = '';\n                       if (log.startPage || log.endPage) metricsText = `Pages: ${log.startPage || 0}-${log.endPage || 0}`;\n                       if (log.vsaCount || log.saCount) metricsText = `VSAQ: ${log.vsaCount || 0} | SAQ: ${log.saCount || 0} | LAQ: ${log.laCount || 0}`;\n                       \n                       return (\n                          <div key={log.id} className=\"p-4 rounded-2xl bg-surface-container border border-white/5 flex flex-col gap-2\">\n                              <div className=\"flex justify-between items-start\">\n                                  <div>\n                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${conf.bg} text-background mr-2`}>{conf.name}</span>\n                                      <span className=\"text-xs text-on-surface-variant font-mono bg-surface-container-lowest px-2 py-0.5 rounded\">{log.sessionType}</span>\n                                  </div>\n                                  <span className=\"text-xs font-bold text-on-surface-variant\">Focus Score: <span className=\"text-[#50C878]\">{score}%</span></span>\n                              </div>\n                              <h4 className=\"text-on-surface font-semibold text-md\">{log.topic}</h4>\n                              {log.frictionAnalysis && (\n                                  <p className=\"text-xs text-amber-400 bg-amber-400/5 p-2 rounded-lg border border-amber-400/10\">\n                                      <strong>Friction Analysis:</strong> {log.frictionAnalysis}\n                                  </p>\n                              )}\n                              <div className=\"flex flex-wrap gap-4 text-xs text-on-surface-variant mt-1\">\n                                  {metricsText && <span className=\"flex items-center gap-1 text-on-surface font-semibold\"><span className=\"material-symbols-outlined text-[14px] text-primary\">menu_book</span> {metricsText}</span>}\n                                  <span>{log.activeMins}m Active</span>\n                                  <span>{log.distractionMins}m Dist</span>\n                                  <span>Retention: {log.retentionScore}/10</span>\n                              </div>\n                          </div>\n                       );\n                   })}\n                </div>\n            )}\n        </div>\n    </section>\n  );\n}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
