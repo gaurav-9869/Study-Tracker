@@ -70,6 +70,11 @@ export default function DailyLedger({
         const reqBody = {
             contents: [{ parts: [{ text: `Extract JSON metrics from this text: "${extractInput}". Schema required (integer values only): { "retentionScore": X, "vsaqCount": X, "saqCount": X, "activeMins": X, "distractionMins": X }. Return ONLY JSON, no markdown formatting.` }] }]
         };
+        const reqBody = {
+            contents: [{ parts: [{ text: `Extract analytics metrics from this text string: "${extractInput}". 
+            Required output schema format: { "retentionScore": number, "vsaqCount": number, "saqCount": number, "laqCount": number, "activeMins": number, "distractionMins": number, "startPage": number, "endPage": number, "frictionPoint": "string" }. 
+            Return clean, raw JSON data strings only. Completely avoid backticks or markdown containers.` }] }]
+        };
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -81,11 +86,16 @@ export default function DailyLedger({
         const cleanedText = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(cleanedText);
         
+        // Comprehensive parameter extraction loop mapping out your input elements
         if (parsed.retentionScore) setLogRetention(parsed.retentionScore.toString());
         if (parsed.vsaqCount) setLogVsa(parsed.vsaqCount.toString());
         if (parsed.saqCount) setLogSa(parsed.saqCount.toString());
+        if (parsed.laqCount) setLogLa(parsed.laqCount.toString());
         if (parsed.activeMins) setLogActive(parsed.activeMins.toString());
         if (parsed.distractionMins) setLogDistract(parsed.distractionMins.toString());
+        if (parsed.startPage) setLogStartPage(parsed.startPage.toString());
+        if (parsed.endPage) setLogEndPage(parsed.endPage.toString());
+        if (parsed.frictionPoint) setLogFriction(parsed.frictionPoint);
         
         setLogNotes(extractInput);
         setExtractInput('');
