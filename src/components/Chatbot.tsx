@@ -60,7 +60,24 @@ Return exactly a JSON block wrapped in \`\`\`json \`\`\` with schema:
 {
   "actions": [
     { "type": "ADD_PLAN", "subject": "phys", "topic": "Topic", "sessionType": "Study (SR)", "targetUnits": 0, "targetMins": 45 },
-    { "type": "ADD_LOG", "planId": "id-if-match-found-in-plan", "subject": "bio", "topic": "Topic", "sessionType": "Revision (No SR)", "activeMins": 30, "distractionMins": 0, "recoveryMins": 0, "notes": "..." }
+    { 
+      "type": "ADD_LOG", 
+      "planId": "id-if-match-found-in-plan", 
+      "subject": "bio", 
+      "topic": "Topic", 
+      "sessionType": "Study (SR)" | "Exercise (No SR)" | "Revision (No SR)", 
+      "activeMins": 45, 
+      "distractionMins": 5, 
+      "recoveryMins": 0, 
+      "startPage": 12, 
+      "endPage": 24, 
+      "vsaCount": 10, 
+      "saCount": 5, 
+      "laCount": 0, 
+      "retentionScore": 8, 
+      "frictionAnalysis": "Struggled with the sign conventions or formula application.",
+      "notes": "..." 
+    }
   ],
   "reply": "Message to show user"
 }
@@ -94,18 +111,26 @@ If no action, send {"actions": [], "reply": "response"}. User input: "${input}"`
                         setLoggedSessions(prev => [...prev, {
                             id: nanoid(),
                             planId: act.planId || undefined,
+                            associatedPlanId: act.planId || undefined,
                             subject: act.subject || 'bio',
                             topic: act.topic || 'Untitled',
-                            sessionType: act.sessionType || 'Study (SR)',
+                            // Cleanly convert long chatbot labels into system tags
+                            sessionType: act.sessionType?.includes('Exercise') ? 'Exercise' : act.sessionType?.includes('Revision') ? 'Revise' : 'Study',
                             activeMins: Number(act.activeMins) || 0,
                             distractionMins: Number(act.distractionMins) || 0,
                             recoveryMins: Number(act.recoveryMins) || 0,
+                            startPage: act.startPage ? Number(act.startPage) : undefined,
+                            endPage: act.endPage ? Number(act.endPage) : undefined,
+                            vsaCount: act.vsaCount ? Number(act.vsaCount) : undefined,
+                            saCount: act.saCount ? Number(act.saCount) : undefined,
+                            laCount: act.laCount ? Number(act.laCount) : undefined,
+                            retentionScore: act.retentionScore ? Number(act.retentionScore) : 5,
+                            frictionAnalysis: act.frictionAnalysis ? act.frictionAnalysis.trim() : 'No major friction logged.',
                             notes: act.notes || '',
-                            isMissed: false
+                            isMissed: false,
+                            synced: false
                         }]);
                     }
-                });
-            }
         } else {
             replyText = text;
         }
