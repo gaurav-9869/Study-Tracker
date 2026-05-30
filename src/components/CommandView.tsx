@@ -33,12 +33,6 @@ export default function CommandView({ morningPlan, setMorningPlan, loggedSession
   const [logSa, setLogSa] = useState('0');
   const [logLa, setLogLa] = useState('0');
 
-  useEffect(() => {
-     if (!userSettings.activeSubjects.includes(logSubject)) {
-         setLogSubject(userSettings.activeSubjects[0] || 'bio');
-     }
-  }, [userSettings.activeSubjects, logSubject]);
-
   const selectPlanForLogging = (plan: PlanItem) => {
     setLogActivePlanId(plan.id);
     setLogSubject(plan.subject);
