@@ -142,5 +142,152 @@ export default function DailyLedger(props: DailyLedgerProps) {
         <h2 className="font-headline text-headline-md text-on-surface font-bold">Logging Dashboard</h2>
         <div className="glass-panel ghost-border p-6 bg-surface-container-low flex flex-col gap-6">
            <div className="flex flex-col gap-2">
-               <label className="text-xs text-primary font-bold tracking-wider uppercase">Telemetry AI Auto-Fill</label>\n               <div className="flex gap-2">\n                   <input type=\"text\" value={autoFillInput} onChange={e => setAutoFillInput(e.target.value)} placeholder=\"e.g., Physics block 45 mins pages 10 to 20 retention 8\" className=\"flex-1 bg-surface-container-lowest border border-white/5 rounded-xl px-4 py-3 text-sm text-on-surface outline-none\" />\n                   <button onClick={handleExtractAI} disabled={isExtracting || !autoFillInput.trim()} className=\"px-4 bg-primary text-on-primary-fixed rounded-xl text-xs font-bold transition-all\">{isExtracting ? 'Parsing...' : 'Process'}</button>\n               </div>\n           </div>\n\n           <div className=\"grid grid-cols-1 md:grid-cols-2 gap-4\">\n               <div className=\"flex flex-col gap-2\">\n                   <label className=\"text-xs text-on-surface-variant font-semibold\">Subject Area</label>\n                   <select value={props.logSubject} onChange={e => props.setLogSubject(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none\">\n                       {props.userSettings.activeSubjects.map(sub => (\n                           <option key={sub} value={sub}>{getSubjectConfig(sub).name}</option>\n                       ))}\n                   </select>\n               </div>\n               <div className=\"flex flex-col gap-2\">\n                   <label className=\"text-xs text-on-surface-variant font-semibold\">Session Modality</label>\n                   <div className=\"grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5\">\n                       {(['Study', 'Revise', 'Exercise'] as SessionMode[]).map(m => (\n                           <button key={m} onClick={() => props.logType !== m && props.setLogType(m)} className=\"py-2 text-xs font-bold rounded-lg transition-all text-on-surface-variant data-[active=true]:bg-primary data-[active=true]:text-on-primary-fixed\" data-active={props.logType === m}>{m}</button>\n                       ))}\n                   </div>\n               </div>\n           </div>\n\n           <div className=\"flex flex-col gap-2\">\n               <label className=\"text-xs text-on-surface-variant font-semibold\">Topic</label>\n               <input type=\"text\" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder=\"Syllabus entry node...\" className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none\" />\n           </div>\n\n           {props.logType === 'Revise' && (\n               <div className=\"flex flex-col gap-2\">\n                   <label className=\"text-xs text-tertiary font-bold tracking-wider uppercase\">Revision Horizon</label>\n                   <div className=\"grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5\">\n                       {['Quick Recap', 'Standard Review', 'Deep Dive'].map(depth => (\n                           <button key={depth} onClick={() => setRevisionDepth(depth)} className=\"py-2 text-xs rounded-lg transition-all text-on-surface-variant data-[active=true]:bg-emerald-500/20 data-[active=true]:text-on-surface data-[active=true]:font-bold\" data-active={revisionDepth === depth}>{depth}</button>\n                       ))}\n                   </div>\n               </div>\n           )}\n\n           {props.logType !== 'Exercise' ? (\n               <div className=\"grid grid-cols-2 gap-4\">\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">Start Page</label>\n                       <input type=\"number\" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none\" />\n                   </div>\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">End Page</label>\n                       <input type=\"number\" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none\" />\n                   </div>\n               </div>\n           ) : (\n               <div className=\"grid grid-cols-3 gap-2\">\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">VSAQ</label>\n                       <input type=\"number\" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none\" />\n                   </div>\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">SAQ</label>\n                       <input type=\"number\" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none\" />\n                   </div>\n                   <div className=\"flex flex-col gap-2\">\n                       <label className=\"text-xs text-on-surface-variant font-semibold\">LAQ</label>\n                       <input type=\"number\" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none\" />\n                   </div>\n               </div>\n           )}\n\n           <div className=\"grid grid-cols-4 gap-2\">\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Active</label>\n                   <input type=\"number\" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-primary\" />\n               </div>\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Distract</label>\n                   <input type=\"number\" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-error\" />\n               </div>\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Recover</label>\n                   <input type=\"number\" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-tertiary\" />\n               </div>\n               <div className=\"flex flex-col gap-1\">\n                   <label className=\"text-[10px] uppercase text-on-surface-variant font-bold\">Retention</label>\n                   <input type=\"number\" min=\"1\" max=\"10\" value={props.logRetention} onChange={e => props.setLogRetention(e.target.value)} className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-amber-400\" />\n               </div>\n           </div>\n\n           <div className=\"flex flex-col gap-2 border-t border-white/5 pt-4\">\n               <label className=\"text-xs text-amber-400 font-bold tracking-wider uppercase flex items-center gap-1\">\n                   <span className=\"material-symbols-outlined text-[16px]\">gavel</span>\n                   Friction Point Analysis *\n               </label>\n               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder=\"Pinpoint equation breakdowns or concepts that cost time (Min 10 characters)...\" className=\"w-full bg-surface-container-lowest border border-amber-400/20 rounded-xl p-3 text-sm outline-none text-on-surface\" />\n           </div>\n\n           <div className=\"flex flex-col gap-2\">\n               <label className=\"text-xs text-on-surface-variant font-semibold\">Notes</label>\n               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder=\"General log annotations...\" className=\"w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none\" />\n           </div>\n\n           <button onClick={handleSaveLog} className=\"w-full py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold text-sm tracking-wide shadow-md transition-all active:scale-[0.99]\">Commit Logs to Database Pipeline</button>\n        </div>\n\n        <div className=\"flex flex-col gap-4 mt-2\">\n            <h3 className=\"font-headline text-lg font-bold text-on-surface\">Session Logs Confirmed Today</h3>\n            {props.loggedSessions.length === 0 ? (\n                <p className=\"text-xs text-on-surface-variant font-medium italic\">No activity logs recorded inside this deployment session.</p>\n            ) : (\n                <div className=\"flex flex-col gap-3\">\n                   {props.loggedSessions.map((log) => {\n                       const conf = getSubjectConfig(log.subject);\n                       const score = getFocusScore(log);\n                       let metricsText = '';\n                       if (log.startPage || log.endPage) metricsText = `Pages: ${log.startPage || 0}-${log.endPage || 0}`;\n                       if (log.vsaCount || log.saCount) metricsText = `VSAQ: ${log.vsaCount || 0} | SAQ: ${log.saCount || 0} | LAQ: ${log.laCount || 0}`;\n                       \n                       return (\n                          <div key={log.id} className=\"p-4 rounded-2xl bg-surface-container border border-white/5 flex flex-col gap-2\">\n                              <div className=\"flex justify-between items-start\">\n                                  <div>\n                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${conf.bg} text-background mr-2`}>{conf.name}</span>\n                                      <span className=\"text-xs text-on-surface-variant font-mono bg-surface-container-lowest px-2 py-0.5 rounded\">{log.sessionType}</span>\n                                  </div>\n                                  <span className=\"text-xs font-bold text-on-surface-variant\">Focus Score: <span className=\"text-[#50C878]\">{score}%</span></span>\n                              </div>\n                              <h4 className=\"text-on-surface font-semibold text-md\">{log.topic}</h4>\n                              {log.frictionAnalysis && (\n                                  <p className=\"text-xs text-amber-400 bg-amber-400/5 p-2 rounded-lg border border-amber-400/10\">\n                                      <strong>Friction Analysis:</strong> {log.frictionAnalysis}\n                                  </p>\n                              )}\n                              <div className=\"flex flex-wrap gap-4 text-xs text-on-surface-variant mt-1\">\n                                  {metricsText && <span className=\"flex items-center gap-1 text-on-surface font-semibold\"><span className=\"material-symbols-outlined text-[14px] text-primary\">menu_book</span> {metricsText}</span>}\n                                  <span>{log.activeMins}m Active</span>\n                                  <span>{log.distractionMins}m Dist</span>\n                                  <span>Retention: {log.retentionScore}/10</span>\n                              </div>\n                          </div>\n                       );\n                   })}\n                </div>\n            )}\n        </div>\n    </section>\n  );\n}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+               <label className="text-xs text-primary font-bold tracking-wider uppercase">Telemetry AI Auto-Fill</label>
+               <div className="flex gap-2">
+                   <input type="text" value={autoFillInput} onChange={e => setAutoFillInput(e.target.value)} placeholder="e.g., Physics block 45 mins pages 10 to 20 retention 8" className="flex-1 bg-surface-container-lowest border border-white/5 rounded-xl px-4 py-3 text-sm text-on-surface outline-none" />
+                   <button onClick={handleExtractAI} disabled={isExtracting || !autoFillInput.trim()} className="px-4 bg-primary text-on-primary-fixed rounded-xl text-xs font-bold transition-all">{isExtracting ? 'Parsing...' : 'Process'}</button>
+               </div>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="flex flex-col gap-2">
+                   <label className="text-xs text-on-surface-variant font-semibold">Subject Area</label>
+                   <select value={props.logSubject} onChange={e => props.setLogSubject(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none">
+                       {props.userSettings.activeSubjects.map(sub => (
+                           <option key={sub} value={sub}>{getSubjectConfig(sub).name}</option>
+                       ))}
+                   </select>
+               </div>
+               <div className="flex flex-col gap-2">
+                   <label className="text-xs text-on-surface-variant font-semibold">Session Modality</label>
+                   <div className="grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5">
+                       {(['Study', 'Revise', 'Exercise'] as SessionMode[]).map(m => (
+                           <button key={m} onClick={() => props.logType !== m && props.setLogType(m)} className={`py-2 text-xs font-bold rounded-lg transition-all ${props.logType === m ? 'bg-primary text-on-primary-fixed' : 'text-on-surface-variant'}`}>{m}</button>
+                       ))}
+                   </div>
+               </div>
+           </div>
+
+           <div className="flex flex-col gap-2">
+               <label className="text-xs text-on-surface-variant font-semibold">Topic</label>
+               <input type="text" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder="Syllabus entry node..." className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none" />
+           </div>
+
+           {props.logType === 'Revise' && (
+               <div className=\"flex flex-col gap-2\">
+                   <label className="text-xs text-tertiary font-bold tracking-wider uppercase">Revision Horizon</label>
+                   <div className="grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5">
+                       {['Quick Recap', 'Standard Review', 'Deep Dive'].map(depth => (
+                           <button key={depth} onClick={() => setRevisionDepth(depth)} className={`py-2 text-xs rounded-lg transition-all ${revisionDepth === depth ? 'bg-emerald-500/20 text-on-surface font-bold' : 'text-on-surface-variant'}`}>{depth}</button>
+                       ))}
+                   </div>
+               </div>
+           )}
+
+           {props.logType !== 'Exercise' ? (
+               <div className="grid grid-cols-2 gap-4">
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">Start Page</label>
+                       <input type="number" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none" />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">End Page</label>
+                       <input type="number" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none" />
+                   </div>
+               </div>
+           ) : (
+               <div className="grid grid-cols-3 gap-2">
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">VSAQ</label>
+                       <input type="number" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">SAQ</label>
+                       <input type="number" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                       <label className="text-xs text-on-surface-variant font-semibold">LAQ</label>
+                       <input type="number" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                   </div>
+               </div>
+           )}
+
+           <div className="grid grid-cols-4 gap-2">
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Active</label>
+                   <input type="number" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-primary" />
+               </div>
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Distract</label>
+                   <input type="number" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-error" />
+               </div>
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Recover</label>
+                   <input type="number" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-tertiary" />
+               </div>
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Retention</label>
+                   <input type="number" min="1" max="10" value={props.logRetention} onChange={e => props.setLogRetention(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-amber-400" />
+               </div>
+           </div>
+
+           <div className="flex flex-col gap-2 border-t border-white/5 pt-4">
+               <label className="text-xs text-amber-400 font-bold tracking-wider uppercase flex items-center gap-1">
+                   <span className="material-symbols-outlined text-[16px]">gavel</span>
+                   Friction Point Analysis *
+               </label>
+               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="Pinpoint equation breakdowns or concepts that cost time (Min 10 characters)..." className="w-full bg-surface-container-lowest border border-amber-400/20 rounded-xl p-3 text-sm outline-none text-on-surface" />
+           </div>
+
+           <div className="flex flex-col gap-2">
+               <label className="text-xs text-on-surface-variant font-semibold">Notes</label>
+               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder="General log annotations..." className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none" />
+           </div>
+
+           <button onClick={handleSaveLog} className="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold text-sm tracking-wide shadow-md transition-all active:scale-[0.99]">Commit Logs to Database Pipeline</button>
+        </div>
+
+        <div className="flex flex-col gap-4 mt-2">
+            <h3 className="font-headline text-lg font-bold text-on-surface">Session Logs Confirmed Today</h3>
+            {props.loggedSessions.length === 0 ? (
+                <p className="text-xs text-on-surface-variant font-medium italic">No activity logs recorded inside this deployment session.</p>
+            ) : (
+                <div className="flex flex-col gap-3">
+                   {props.loggedSessions.map((log) => {
+                       const conf = getSubjectConfig(log.subject);
+                       const score = getFocusScore(log);
+                       let metricsText = '';
+                       if (log.startPage || log.endPage) metricsText = `Pages: ${log.startPage || 0}-${log.endPage || 0}`;
+                       if (log.vsaCount || log.saCount) metricsText = `VSAQ: ${log.vsaCount || 0} | SAQ: ${log.saCount || 0} | LAQ: ${log.laCount || 0}`;
+                       
+                       return (
+                          <div key={log.id} className="p-4 rounded-2xl bg-surface-container border border-white/5 flex flex-col gap-2">
+                              <div className="flex justify-between items-start">
+                                  <div>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${conf.bg} text-background mr-2`}>{conf.name}</span>
+                                      <span className="text-xs text-on-surface-variant font-mono bg-surface-container-lowest px-2 py-0.5 rounded">{log.sessionType}</span>
+                                  </div>
+                                  <span className="text-xs font-bold text-on-surface-variant">Focus Score: <span className="text-[#50C878]">{score}%</span></span>
+                              </div>
+                              <h4 className="text-on-surface font-semibold text-md">{log.topic}</h4>
+                              {log.frictionAnalysis && (
+                                  <p className="text-xs text-amber-400 bg-amber-400/5 p-2 rounded-lg border border-amber-400/10">
+                                      <strong>Friction Analysis:</strong> {log.frictionAnalysis}
+                                  </p>
+                              )}
+                              <div className="flex flex-wrap gap-4 text-xs text-on-surface-variant mt-1">
+                                  {metricsText && <span className="flex items-center gap-1 text-on-surface font-semibold"><span className="material-symbols-outlined text-[14px] text-primary">menu_book</span> {metricsText}</span>}
+                                  <span>{log.activeMins}m Active</span>
+                                  <span>{log.distractionMins}m Dist</span>
+                                  <span>Retention: {log.retentionScore}/10</span>
+                              </div>
+                          </div>
+                       );
+                   })}
+                </div>
+            )}
+        </div>
+    </section>
+  );
+}
+
