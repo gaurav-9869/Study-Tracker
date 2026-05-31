@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserSettings, getSubjectConfig } from '../types';
 
 declare var google: any;
@@ -13,8 +13,6 @@ export interface PresetConfig {
 interface AccountViewProps {
     userSettings: UserSettings;
     setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
-    
-    // Dynamic design variables mapped from App frame shell
     activeWallpaper: string;
     setActiveWallpaper: (id: string) => void;
     glassBlur: number;
@@ -27,18 +25,17 @@ interface AccountViewProps {
 export default function AccountView({ 
     userSettings, 
     setUserSettings,
-    activeWallpaper,
-    setActiveWallpaper,
     glassBlur,
     setGlassBlur,
     glassOpacity,
-    setGlassOpacity,
-    presets
+    setGlassOpacity
 }: AccountViewProps) {
   const [hasToken, setHasToken] = useState(false);
   const [userProfile, setUserProfile] = useState<{name: string, picture: string, email: string} | null>(null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
      const token = localStorage.getItem('gcal_token');
@@ -153,42 +150,101 @@ export default function AccountView({
       setNewSubjectName('');
   };
 
-  // Combine default subjects with any custom added subjects
+  // --- THE ALGORITHMIC COLOR EXTRACTION ENGINE ---
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          const img = new Image();
+          img.onload = () => {
+              // Create a hidden canvas to sample image pixels
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
+              if (ctx) {
+                  // Downscale for performance speed
+                  canvas.width = 100;
+                  canvas.height = Math.floor(100 * (img.height / img.width));
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  
+                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                  let r = 0, g = 0, b = 0, a = 0;
+                  
+                  // Sample pixels to find the average dominant tone
+                  for (let i = 0; i < imgData.data.length; i += 4) {
+                      r += imgData.data[i];
+                      g += imgData.data[i + 1];
+                      b += imgData.data[i + 2];
+                      a++;
+                  }
+                  
+                  r = Math.floor(r / a);
+                  g = Math.floor(g / a);
+                  b = Math.floor(b / a);
+                  
+                  // Boost the saturation mathematically so it functions as a vibrant UI accent
+                  const max = Math.max(r, g, b);
+                  if (max > 0) {
+                      const boost = 255 / max;
+                      r = Math.min(255, Math.floor(r * boost * 0.8));
+                      g = Math.min(255, Math.floor(g * boost * 0.8));
+                      b = Math.min(255, Math.floor(b * boost * 0.8));
+                  }
+                  
+                  const dominantColor = `rgb(${r}, ${g}, ${b})`;
+
+                  // Instantly apply changes to the live UI
+                  document.documentElement.style.setProperty('--wallpaper-url', `url(${dataUrl})`);
+                  document.documentElement.style.setProperty('--theme-primary', dominantColor);
+                  
+                  // Cache for persistent reload (We will wire App.tsx to read this next)
+                  localStorage.setItem('custom_wallpaper_url', dataUrl);
+                  localStorage.setItem('custom_wallpaper_color', dominantColor);
+              }
+          };
+          img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+  };
+
   const allKnownSubjects = Array.from(new Set(['phys', 'chem', 'bio', 'math', ...userSettings.activeSubjects]));
 
   return (
     <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto animate-ios-fade-in text-zinc-100">
         
-        {/* Main Fluid Settings Container */}
         <div className="ios-glass-panel p-6 sm:p-10 flex flex-col gap-10">
              
-             {/* --- SECTION 1: INTERFACE GEOMETRY (THEMES & BLUR) --- */}
+             {/* --- SECTION 1: INTELLIGENT INTERFACE GEOMETRY --- */}
              <div className="flex flex-col gap-5 border-b border-white/5 pb-8">
                  <h3 className="text-sm font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                     <span className="material-symbols-outlined text-[18px]">palette</span> Interface Geometry
+                     <span className="material-symbols-outlined text-[18px]">palette</span> Intelligent Environment
                  </h3>
                  
-                 <div className="flex flex-col gap-2">
-                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Adaptive Wallpaper Canvas</label>
-                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
-                         {presets.map((preset) => (
-                             <button
-                                 key={preset.id}
-                                 type="button"
-                                 onClick={() => setActiveWallpaper(preset.id)}
-                                 className={`p-4 rounded-2xl text-left border relative transition-all duration-300 cursor-pointer ios-glass-card-nested ${activeWallpaper === preset.id ? 'border-primary bg-white/10 shadow-lg shadow-primary/20' : 'border-white/5 hover:border-white/10 hover:bg-white/5'}`}
-                             >
-                                 <div className="font-bold text-sm text-zinc-100">{preset.name}</div>
-                                 <div className="text-[10px] text-zinc-400 mt-1 uppercase tracking-widest font-mono">Accent: <span style={{ color: preset.primaryColor }}>■</span></div>
-                                 {activeWallpaper === preset.id && (
-                                     <span className="material-symbols-outlined text-primary text-[18px] absolute top-4 right-4">check_circle</span>
-                                 )}
-                             </button>
-                         ))}
-                     </div>
+                 <div className="flex flex-col gap-4">
+                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Adaptive Workspace Wallpaper</label>
+                     <p className="text-[11px] text-zinc-500 max-w-xl leading-relaxed">
+                         Upload an image. The internal canvas engine will analyze the image data and automatically re-render the application's primary accents to match the dominant color scheme.
+                     </p>
+                     
+                     <input 
+                         type="file" 
+                         accept="image/*" 
+                         className="hidden" 
+                         ref={fileInputRef} 
+                         onChange={handleFileUpload} 
+                     />
+                     <button 
+                         onClick={() => fileInputRef.current?.click()}
+                         className="flex items-center justify-center gap-3 w-full py-5 rounded-2xl border-2 border-dashed border-white/10 hover:border-primary/50 hover:bg-white/5 transition-all cursor-pointer font-bold tracking-wide"
+                     >
+                         <span className="material-symbols-outlined text-[24px] text-primary">imagesmode</span>
+                         Upload Custom Wallpaper
+                     </button>
                  </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                      <div className="flex flex-col gap-3">
                          <div className="flex justify-between items-center text-xs">
                              <label className="font-semibold text-zinc-400 uppercase tracking-wider">Backdrop Blur Depth</label>
