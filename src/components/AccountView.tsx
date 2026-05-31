@@ -1,18 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { UserSettings, getSubjectConfig } from '../types';
+import { UserSettings } from '../types';
 
 declare var google: any;
 
-interface AccountViewProps {
-    userSettings: UserSettings;
-    setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
+interface PresetConfig {
+  id: string;
+  name: string;
+  url: string;
+  primaryColor: string;
+  glassOpacity: string;
 }
 
-export default function AccountView({ userSettings, setUserSettings }: AccountViewProps) {
+interface AccountViewProps {
+  userSettings: UserSettings;
+  setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
+  
+  // Dynamic design variables mapped from App frame shell
+  activeWallpaper: string;
+  setActiveWallpaper: (id: string) => void;
+  glassBlur: number;
+  setGlassBlur: (val: number) => void;
+  glassOpacity: number;
+  setGlassOpacity: (val: number) => void;
+  presets: PresetConfig[];
+}
+
+export default function AccountView({ 
+  userSettings, 
+  setUserSettings,
+  activeWallpaper,
+  setActiveWallpaper,
+  glassBlur,
+  setGlassBlur,
+  glassOpacity,
+  setGlassOpacity,
+  presets
+}: AccountViewProps) {
   const [hasToken, setHasToken] = useState(false);
   const [userProfile, setUserProfile] = useState<{name: string, picture: string, email: string} | null>(null);
-  const [newSubjectName, setNewSubjectName] = useState('');
-
   const [geminiKey, setGeminiKey] = useState('');
 
   useEffect(() => {
@@ -33,7 +58,6 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
          }
      } else {
          if (token) {
-             // Token expired
              localStorage.removeItem('gcal_token');
              localStorage.removeItem('gcal_token_expires');
          }
@@ -42,218 +66,198 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
   }, []);
 
   const handleGeminiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setGeminiKey(e.target.value);
-      localStorage.setItem('gemini_api_key', e.target.value);
+      const val = e.target.value.trim();
+      setGeminiKey(val);
+      localStorage.setItem('gemini_api_key', val);
   };
 
   const fetchUserProfile = async (token: string) => {
       try {
-          const res = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
-              headers: { Authorization: `Bearer ${token}` }
+          const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.ok) {
               const data = await res.json();
-              setUserProfile(data);
-              localStorage.setItem('gcal_profile', JSON.stringify(data));
+              const profileData = { name: data.name, picture: data.picture, email: data.email };
+              setUserProfile(profileData);
+              localStorage.setItem('gcal_profile', JSON.stringify(profileData));
+              if (data.picture) {
+                  localStorage.setItem('google_profile_img', data.picture); // Commit picture to header loop caching
+              }
           }
-      } catch (err) {
-          console.error("Failed to fetch profile", err);
+      } catch(e) {
+          console.error("Failed downloading Google profile parameters", e);
       }
   };
 
   const handleConnect = () => {
-     try {
-         const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
-         if (!clientId || clientId === 'your_google_client_id_here') {
-             alert("Please configure VITE_GOOGLE_CLIENT_ID in your environment variables/secrets.");
-             return;
-         }
-         const client = google.accounts.oauth2.initTokenClient({
-             client_id: clientId,
-             scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-             prompt: 'consent', 
-             callback: (response: any) => {
-                 if (response.error) {
-                     alert("Auth error: " + response.error);
-                 } else {
-                     localStorage.setItem('gcal_token', response.access_token);
-                     localStorage.setItem('gcal_token_expires', Date.now() + response.expires_in * 1000);
-                     setHasToken(true);
-                     fetchUserProfile(response.access_token);
-                 }
-             },
-         });
-         client.requestAccessToken();
-     } catch(err: any) {
-         alert("Error setting up Calendar OAuth: " + err.message);
-     }
+      if (!google || !google.accounts || !google.accounts.oauth2) {
+          alert("Google Sign-In API integration layer offline. Check script hooks.");
+          return;
+      }
+      const client = google.accounts.oauth2.initTokenClient({
+          client_id: localStorage.getItem('pcbm_gclient_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/calendar.events',
+          callback: async (tokenResponse: any) => {
+              if (tokenResponse.access_token) {
+                  localStorage.setItem('gcal_token', tokenResponse.access_token);
+                  localStorage.setItem('gcal_token_expires', String(Date.now() + Number(tokenResponse.expires_in) * 1000));
+                  setHasToken(true);
+                  await fetchUserProfile(tokenResponse.access_token);
+                  window.location.reload(); // Force full hydration reload to bind global layout images instantly
+              }
+          },
+      });
+      client.requestAccessToken();
   };
 
   const handleDisconnect = () => {
       localStorage.removeItem('gcal_token');
+      localStorage.removeItem('gcal_token_expires');
       localStorage.removeItem('gcal_profile');
+      localStorage.removeItem('google_profile_img');
       setHasToken(false);
       setUserProfile(null);
+      window.location.reload();
   };
 
   const exportData = () => {
-      const data: Record<string, any> = {};
-      for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('pcbm_')) {
-             try {
-                data[key] = JSON.parse(localStorage.getItem(key) || '');
-             } catch(e) {
-                data[key] = localStorage.getItem(key);
-             }
-          }
-      }
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `pcbm-export-${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const today = new Date().toISOString().split('T')[0];
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(localStorage));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `pcbm_tracker_backup_${today}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
   };
-
-  const handleAddSubject = () => {
-      const trimmed = newSubjectName.trim().toLowerCase();
-      if (!trimmed) return;
-      if (!userSettings.activeSubjects.includes(trimmed)) {
-          setUserSettings(prev => ({
-              ...prev,
-              activeSubjects: [...prev.activeSubjects, trimmed]
-          }));
-      }
-      setNewSubjectName('');
-  };
-
-  // Combine default subjects with any custom added subjects
-  const allKnownSubjects = Array.from(new Set(['phys', 'chem', 'bio', 'math', ...userSettings.activeSubjects]));
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto fade-in">
-        <h2 className="font-headline text-headline-md text-on-surface font-bold">Account Profile</h2>
+    <div className="w-full flex flex-col gap-6 animate-fade-in text-zinc-100">
+        <h2 className="font-headline text-2xl font-bold tracking-tight text-zinc-100">System Preferences</h2>
         
-        <div className="glass-panel ghost-border p-6 flex flex-col gap-6 bg-surface-container-low">
-             <h3 className="font-headline text-lg text-on-surface font-medium border-b border-white/5 pb-2">User Identity</h3>
+        {/* Main iOS Translucent Preference Card Sheet */}
+        <div className="ios-glass-panel p-6 bg-opacity-30 flex flex-col gap-6 w-full">
              
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div>
-                    <label className="block text-sm text-on-surface-variant mb-1">Name</label>
-                    <input 
-                       type="text" 
-                       value={userSettings.name} 
-                       onChange={e => setUserSettings(prev => ({...prev, name: e.target.value}))} 
-                       className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-3 text-on-surface focus:border-primary/50 focus:outline-none transition-colors" 
-                       placeholder="e.g. Rahul"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-sm text-on-surface-variant mb-1">Class / Target Year</label>
-                    <input 
-                       type="text" 
-                       value={userSettings.className} 
-                       onChange={e => setUserSettings(prev => ({...prev, className: e.target.value}))} 
-                       className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-3 text-on-surface focus:border-primary/50 focus:outline-none transition-colors" 
-                       placeholder="e.g. 11th"
-                    />
-                 </div>
-                 <div className="md:col-span-2">
-                    <label className="block text-sm text-on-surface-variant mb-1">Gemini API Key</label>
-                    <input 
-                       type="password" 
-                       value={geminiKey} 
-                       onChange={handleGeminiKeyChange} 
-                       className="w-full bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-3 text-on-surface focus:border-primary/50 focus:outline-none transition-colors" 
-                       placeholder="AI features require an API Key. Key stored locally."
-                    />
-                 </div>
-             </div>
-
-             <h3 className="font-headline text-lg text-on-surface font-medium border-b border-white/5 pb-2 mt-4">Subject Manager</h3>
-             
-             <div>
-                <label className="block text-sm text-on-surface-variant mb-2">Subject Filter (Uncheck to remove from Planner & Logger)</label>
-                <div className="flex flex-wrap gap-3 mb-4">
-                    {allKnownSubjects.map(sub => {
-                        const isChecked = userSettings.activeSubjects.includes(sub);
-                        const conf = getSubjectConfig(sub);
-                        return (
-                           <label key={sub} className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-primary/20 border-primary ' + conf.text : 'bg-surface-container-lowest border-outline-variant/10 text-on-surface-variant'}`}>
-                               <input 
-                                  type="checkbox" 
-                                  className="hidden"
-                                  checked={isChecked}
-                                  onChange={(e) => {
-                                      if (e.target.checked) {
-                                          setUserSettings(prev => ({ ...prev, activeSubjects: [...prev.activeSubjects, sub] }));
-                                      } else {
-                                          setUserSettings(prev => ({ ...prev, activeSubjects: prev.activeSubjects.filter(s => s !== sub) }));
-                                      }
-                                  }}
-                               />
-                               <span className="font-medium text-sm capitalize">{conf.name}</span>
-                           </label>
-                        );
-                    })}
-                </div>
-                <div className="flex gap-2 max-w-sm">
-                    <input 
-                        type="text" 
-                        value={newSubjectName} 
-                        onChange={e => setNewSubjectName(e.target.value)} 
-                        onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
-                        className="flex-1 bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-2 text-sm text-on-surface focus:border-primary/50 focus:outline-none transition-colors" 
-                        placeholder="Add new subject..."
-                    />
-                    <button 
-                        onClick={handleAddSubject}
-                        className="px-4 py-2 bg-surface-container-lowest border border-outline-variant/10 rounded-lg hover:bg-surface-container-high transition-colors text-on-surface"
-                    >
-                        Add
-                    </button>
-                </div>
-             </div>
-             
-             <h3 className="font-headline text-lg text-on-surface font-medium border-b border-white/5 pb-2 mt-4">Google Account</h3>
-             
-             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-surface-container-lowest rounded-xl border border-white/5 gap-4">
-                 <div className="flex items-center gap-4">
-                     {userProfile ? (
-                         <img src={userProfile.picture} alt="Profile" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border-2 border-primary" />
-                     ) : (
-                         <div className="w-12 h-12 bg-white flex items-center justify-center rounded-full">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" className="w-6 h-6" />
-                         </div>
-                     )}
-                     
-                     <div>
-                         <h4 className="font-bold text-on-surface text-lg">{userProfile ? userProfile.name : 'Sign In with Google'}</h4>
-                         <p className="text-sm text-on-surface-variant flex items-center gap-1">
-                             {hasToken ? <><span className="text-tertiary-container text-xs">●</span> {userProfile?.email || 'Connected'}</> : 'Sync calendar and save progress remotely.'}
-                         </p>
+             {/* --- THE REAL-TIME LIQUID GLASS CONFIGURATION SLOT --- */}
+             <div className="flex flex-col gap-4 border-b border-white/5 pb-6">
+                 <h3 className="font-headline text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[18px]">palette</span> Interface Geometry
+                 </h3>
+                 
+                 {/* Wallpaper Selector Lane */}
+                 <div className="flex flex-col gap-2">
+                     <label className="text-xs font-semibold text-zinc-400">Adaptive Screen Wallpaper Canvas</label>
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
+                         {presets.map((preset) => (
+                             <button
+                                 key={preset.id}
+                                 type="button"
+                                 onClick={() => setActiveWallpaper(preset.id)}
+                                 data-active={activeWallpaper === preset.id}
+                                 className="p-4 rounded-xl text-left border relative transition-all duration-300 group cursor-pointer ios-glass-card-nested data-[active=true]:border-primary data-[active=true]:bg-white/10"
+                             >
+                                 <div className="font-bold text-sm text-zinc-100">{preset.name}</div>
+                                 <div className="text-[10px] text-zinc-400 mt-1 uppercase tracking-widest font-mono">Accent: <span style={{ color: preset.primaryColor }}>■</span></div>
+                                 {activeWallpaper === preset.id && (
+                                     <span className="material-symbols-outlined text-primary text-[18px] absolute top-3 right-3 animate-scale-in">check_circle</span>
+                                 )}
+                             </button>
+                         ))}
                      </div>
                  </div>
-                 {hasToken ? (
-                     <button onClick={handleDisconnect} className="text-sm px-6 py-3 rounded-full border border-error text-error hover:bg-error/10 cursor-pointer transition-colors font-medium">Sign Out</button>
-                 ) : (
-                     <button onClick={handleConnect} className="text-sm px-6 py-3 rounded-full bg-primary text-on-primary-fixed hover:bg-primary-fixed hover:shadow-lg hover:shadow-primary/20 cursor-pointer transition-all font-bold">Sign In & Sync</button>
-                 )}
+
+                 {/* Real-time Geometry Sliders Grid */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+                     <div className="flex flex-col gap-2">
+                         <div className="flex justify-between items-center text-xs">
+                             <label className="font-semibold text-zinc-400">Backdrop Blur Intensity</label>
+                             <span className="font-mono bg-white/5 px-2 py-0.5 rounded text-primary font-bold">{glassBlur}px</span>
+                         </div>
+                         <input 
+                             type="range" min="8" max="40" step="1" 
+                             value={glassBlur} 
+                             onChange={(e) => setGlassBlur(Number(e.target.value))}
+                             className="w-full accent-primary bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                         />
+                     </div>
+
+                     <div className="flex flex-col gap-2">
+                         <div className="flex justify-between items-center text-xs">
+                             <label className="font-semibold text-zinc-400">Glass Panel Opacity</label>
+                             <span className="font-mono bg-white/5 px-2 py-0.5 rounded text-primary font-bold">{Math.round(glassOpacity * 100)}%</span>
+                         </div>
+                         <input 
+                             type="range" min="0.20" max="0.75" step="0.05" 
+                             value={glassOpacity} 
+                             onChange={(e) => setGlassOpacity(Number(e.target.value))}
+                             className="w-full accent-primary bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                         />
+                     </div>
+                 </div>
              </div>
 
-             <h3 className="font-headline text-lg text-on-surface font-medium border-b border-white/5 pb-2 mt-4">Data Management</h3>
-             
-             <div className="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-white/5">
-                 <div>
-                     <h4 className="font-bold text-on-surface">Export All Data</h4>
-                     <p className="text-xs text-on-surface-variant">Download a JSON copy of all your plans, logs, and settings.</p>
+             {/* API Engine Keys Panel */}
+             <div className="flex flex-col gap-4 border-b border-white/5 pb-6">
+                 <h3 className="font-headline text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[18px]">key</span> Telemetry AI Pipeline
+                 </h3>
+                 <div className="flex flex-col gap-2">
+                     <label className="text-xs font-semibold text-zinc-400">Google AI Studio API Key (Gemini Core)</label>
+                     <input 
+                         type="password" 
+                         value={geminiKey} 
+                         onChange={handleGeminiKeyChange}
+                         placeholder="AI Studio Token signature key..." 
+                         className="w-full ios-glass-input p-3 text-sm outline-none font-mono tracking-wide"
+                     />
+                     <p className="text-[10px] text-zinc-500 italic mt-0.5">Used locally to execute natural language extraction parsing scripts securely.</p>
                  </div>
-                 <button onClick={exportData} className="text-sm px-4 py-2 rounded-full border border-primary text-primary hover:bg-primary/10 cursor-pointer transition-colors flex items-center gap-2">
-                     <span className="material-symbols-outlined text-[18px]">download</span> Export
-                 </button>
              </div>
+
+             {/* User Identity Frame Container Area */}
+             <div className="flex flex-col gap-4 border-b border-white/5 pb-6">
+                 <h3 className="font-headline text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[18px]">account_circle</span> Identity Authentication
+                 </h3>
+                 <div className="flex items-center justify-between p-4 ios-glass-card-nested">
+                     <div className="flex items-center gap-4">
+                         <div className="w-14 h-14 rounded-full border border-white/10 flex items-center justify-center overflow-hidden bg-black/40 text-xl font-bold font-headline text-zinc-300">
+                             {userProfile?.picture ? (
+                                 <img src={userProfile.picture} alt="Google Authenticated Display Identification Avatar" className="w-full h-full object-cover" />
+                             ) : (
+                                 userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'A'
+                             )}
+                         </div>
+                         <div>
+                             <h4 className="font-bold text-zinc-200 text-sm">{userProfile ? userProfile.name : 'Offline Workspace Node'}</h4>
+                             <p className="text-xs text-zinc-400 mt-0.5">{userProfile ? userProfile.email : 'Google Calendar pipelines disconnected.'}</p>
+                         </div>
+                     </div>
+                     {hasToken ? (
+                         <button onClick={handleDisconnect} className="text-xs px-5 py-2.5 rounded-xl border border-error text-error hover:bg-error/10 cursor-pointer transition-colors font-semibold">Disconnect Account</button>
+                     ) : (
+                         <button onClick={handleConnect} className="text-xs px-5 py-2.5 rounded-xl bg-primary text-on-primary-fixed hover:shadow-lg hover:shadow-primary/20 cursor-pointer transition-all font-bold">Connect GCalendar</button>
+                     )}
+                 </div>
+             </div>
+
+             {/* Data Operations Panel Layout */}
+             <div className="flex flex-col gap-4">
+                 <h3 className="font-headline text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[18px]">database</span> Storage Operations
+                 </h3>
+                 <div className="flex items-center justify-between p-4 ios-glass-card-nested">
+                     <div>
+                         <h4 className="font-bold text-zinc-200 text-sm">Download Local Database Backups</h4>
+                         <p className="text-xs text-zinc-400 mt-0.5">Exports full structural layout indexes, logged goals, and history as raw encrypted JSON formats.</p>
+                     </div>
+                     <button onClick={exportData} className="text-xs px-4 py-2 rounded-xl border border-primary text-primary hover:bg-primary/10 cursor-pointer transition-colors flex items-center gap-2 font-bold">
+                         <span className="material-symbols-outlined text-[16px]">download</span> Export Database
+                     </button>
+                 </div>
+             </div>
+
         </div>
     </div>
   );
