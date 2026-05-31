@@ -1,27 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  /* Core Color Foundations optimized for iOS translucent layers */
   --color-background: transparent;
   --color-surface-glass: rgba(15, 22, 36, var(--glass-opacity, 0.45));
   --color-surface-glass-nested: rgba(255, 255, 255, 0.04);
   --color-surface-input: rgba(0, 0, 0, 0.4);
   
-  /* Tactical Accent Scales */
-  --color-primary: #10B981; /* Premium Emerald Green for active sessions/timers */
+  --color-primary: #10B981;
   --color-primary-container: rgba(16, 185, 129, 0.15);
-  --color-warning: #F59E0B; /* Clear Amber for cognitive friction tracking */
+  --color-warning: #F59E0B;
   --color-warning-container: rgba(245, 158, 11, 0.1);
-  --color-error: #EF4444; /* Soft Red for absolute distractions */
-  --color-tertiary: #3b82f6; /* Analytical Blue for logs/archive markers */
+  --color-error: #EF4444;
+  --color-tertiary: #3b82f6;
   
-  /* Contrast Typography Layers */
-  --color-on-surface: #F8FAFC; /* Crisp primary text display */
-  --color-on-surface-variant: #94A3B8; /* Secondary labels and subheadings */
+  --color-on-surface: #F8FAFC;
+  --color-on-surface-variant: #94A3B8;
   --color-outline-glass: rgba(255, 255, 255, 0.08);
 }
 
-/* Global Root Configuration & Fluid Scroll Reset */
 body {
   margin: 0;
   padding: 0;
@@ -32,13 +28,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* --- THE LIQUID GLASS LIVE COMPONENT PARADIGM --- */
-
-/* Full Viewport App Wallpaper Layer */
 .ios-wallpaper-canvas {
   position: fixed;
   inset: 0;
-  zIndex: -1;
+  z-index: -1;
   background-image: var(--wallpaper-url, radial-gradient(circle at 0% 0%, #1e1b4b 0%, #0f172a 100%));
   background-size: cover;
   background-position: center;
@@ -46,26 +39,17 @@ body {
   transition: background-image 0.5s ease;
 }
 
-/* Main Translucent Container Panels (Premium iOS Curvature Framework) */
 .ios-glass-panel {
   background: var(--color-surface-glass);
   backdrop-filter: blur(var(--glass-blur, 24px));
   -webkit-backdrop-filter: blur(var(--glass-blur, 24px));
-  
-  /* Strict 24px-28px squircle curvature configuration matching native layouts */
   border-radius: 26px;
-  
-  /* Dual-Stage Rim Lighting: Catches incoming light at the top edge for realism */
   border: 1px solid var(--color-outline-glass);
   border-top: 1px solid rgba(255, 255, 255, 0.18);
-  
-  /* Multi-layered organic ambient occlusion dropshadow structure */
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15),
-              0 20px 50px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15), 0 20px 50px rgba(0, 0, 0, 0.25);
   transition: background 0.3s ease, backdrop-filter 0.3s ease, border-color 0.2s ease;
 }
 
-/* Embedded Subcontainers (Cards nested within panels) */
 .ios-glass-card-nested {
   background: var(--color-surface-glass-nested);
   backdrop-filter: blur(10px);
@@ -74,13 +58,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.04);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.ios-glass-card-nested:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.08);
-  transform: translateY(-1px);
-}
 
-/* High-Definition Input Fields */
 .ios-glass-input {
   background: var(--color-surface-input);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -89,48 +67,10 @@ body {
   outline: none;
   transition: all 0.2s ease;
 }
+
 .ios-glass-input:focus {
   border-color: rgba(16, 185, 129, 0.4);
   background: rgba(0, 0, 0, 0.55);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
-/* Premium Navigation & Filter Segment Control Pills */
-.ios-filter-pill {
-  padding: 6px 14px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.02);
-  color: var(--color-on-surface-variant);
-}
-.ios-filter-pill[data-active="true"] {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: var(--color-on-surface);
-}
-
-/* Custom Friction Indicator Highlight Engine */
-.ios-friction-alert-border {
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-top: 1px solid rgba(245, 158, 11, 0.4);
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.03) 0%, rgba(245, 158, 11, 0.06) 100%);
-}
-
-/* Ultra-Premium Unified Scrollbar System */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.4);
-}
