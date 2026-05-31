@@ -45,10 +45,10 @@ export default function DailyLedger(props: DailyLedgerProps) {
   const [frictionText, setFrictionText] = React.useState('');
   const [revisionDepth, setRevisionDepth] = React.useState('Standard Review');
 
-  // --- DIGITAL SCRATCHPAD SAFE ENGINE ---
+  // Digital Scratchpad safe-engine
   const [showScratchpad, setShowScratchpad] = React.useState(false);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const isDrawing = React.useRef(false); // Using Ref prevents high-speed re-render crashes
+  const isDrawing = React.useRef(false); 
 
   React.useEffect(() => {
     if (showScratchpad && canvasRef.current) {
@@ -59,7 +59,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
         if (ctx) {
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#10B981'; // Emerald Green Ink
+            ctx.strokeStyle = '#10B981';
             ctx.lineWidth = 3;
         }
     }
@@ -163,137 +163,139 @@ export default function DailyLedger(props: DailyLedgerProps) {
   };
 
   return (
-    <section className="flex flex-col gap-6 w-full fade-in">
-        <h2 className="font-headline text-headline-md text-on-surface font-bold">Logging Dashboard</h2>
-        <div className="glass-panel ghost-border p-6 bg-surface-container-low flex flex-col gap-6 rounded-3xl">
+    <section className="flex flex-col gap-6 w-full animate-fade-in">
+        <h2 className="font-headline text-2xl tracking-tight text-zinc-100 font-bold">Logging Dashboard</h2>
+        
+        {/* iOS Liquid Glass Panel Application */}
+        <div className="ios-glass-panel p-6 flex flex-col gap-6">
            <div className="flex flex-col gap-2">
                <label className="text-xs text-primary font-bold tracking-wider uppercase">Telemetry AI Auto-Fill</label>
                <div className="flex gap-2">
-                   <input type="text" value={autoFillInput} onChange={e => setAutoFillInput(e.target.value)} placeholder="e.g., Physics block 45 mins pages 10 to 20 retention 8" className="flex-1 bg-surface-container-lowest border border-white/5 rounded-xl px-4 py-3 text-sm text-on-surface outline-none" />
-                   <button onClick={handleExtractAI} disabled={isExtracting || !autoFillInput.trim()} className="px-4 bg-primary text-on-primary-fixed rounded-xl text-xs font-bold transition-all hover:bg-primary-container active:scale-95 cursor-pointer">{isExtracting ? 'Parsing...' : 'Process'}</button>
+                   <input type="text" value={autoFillInput} onChange={e => setAutoFillInput(e.target.value)} placeholder="e.g., Physics block 45 mins pages 10 to 20 retention 8" className="flex-1 ios-glass-input px-4 py-3 text-sm" />
+                   <button onClick={handleExtractAI} disabled={isExtracting || !autoFillInput.trim()} className="px-5 bg-primary text-white rounded-xl text-xs font-bold transition-all hover:bg-emerald-600 active:scale-95 cursor-pointer">{isExtracting ? 'Parsing...' : 'Process'}</button>
                </div>
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                <div className="flex flex-col gap-2">
-                   <label className="text-xs text-on-surface-variant font-semibold">Subject Area</label>
-                   <select value={props.logSubject} onChange={e => props.setLogSubject(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none">
+                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Subject Area</label>
+                   <select value={props.logSubject} onChange={e => props.setLogSubject(e.target.value as SubjectKey)} className="w-full ios-glass-input p-3.5 text-sm">
                        {props.userSettings.activeSubjects.map(sub => (
-                           <option key={sub} value={sub}>{getSubjectConfig(sub).name}</option>
+                           <option key={sub} value={sub} className="bg-[#0a0f18]">{getSubjectConfig(sub).name}</option>
                        ))}
                    </select>
                </div>
                <div className="flex flex-col gap-2">
-                   <label className="text-xs text-on-surface-variant font-semibold">Session Modality</label>
-                   <div className="grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5">
+                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Session Modality</label>
+                   <div className="grid grid-cols-3 ios-glass-input p-1.5">
                        {(['Study', 'Revise', 'Exercise'] as SessionMode[]).map(m => (
-                           <button key={m} onClick={() => props.logType !== m && props.setLogType(m)} className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${props.logType === m ? 'bg-primary text-on-primary-fixed shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}>{m}</button>
+                           <button key={m} onClick={() => props.logType !== m && props.setLogType(m)} className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${props.logType === m ? 'bg-primary text-white shadow-md' : 'text-zinc-400 hover:text-white'}`}>{m}</button>
                        ))}
                    </div>
                </div>
            </div>
 
            <div className="flex flex-col gap-2">
-               <label className="text-xs text-on-surface-variant font-semibold">Topic</label>
-               <input type="text" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder="Syllabus entry node..." className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none" />
+               <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Topic</label>
+               <input type="text" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder="Syllabus entry node..." className="w-full ios-glass-input p-3.5 text-sm" />
            </div>
 
            {props.logType === 'Revise' && (
-               <div className="flex flex-col gap-2 fade-in">
-                   <label className="text-xs text-tertiary font-bold tracking-wider uppercase">Revision Horizon</label>
-                   <div className="grid grid-cols-3 bg-surface-container-lowest p-1 rounded-xl border border-white/5">
+               <div className="flex flex-col gap-2 animate-fade-in">
+                   <label className="text-xs font-bold tracking-wider uppercase text-sky-400">Revision Horizon</label>
+                   <div className="grid grid-cols-3 ios-glass-input p-1.5">
                        {['Quick Recap', 'Standard Review', 'Deep Dive'].map(depth => (
-                           <button key={depth} onClick={() => setRevisionDepth(depth)} className={`py-2 text-xs rounded-lg transition-all cursor-pointer ${revisionDepth === depth ? 'bg-tertiary/20 text-tertiary font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}>{depth}</button>
+                           <button key={depth} onClick={() => setRevisionDepth(depth)} className={`py-2 text-xs rounded-xl transition-all cursor-pointer ${revisionDepth === depth ? 'bg-sky-500/20 text-sky-400 font-bold' : 'text-zinc-400 hover:text-white'}`}>{depth}</button>
                        ))}
                    </div>
                </div>
            )}
 
            {props.logType !== 'Exercise' ? (
-               <div className="grid grid-cols-2 gap-4">
+               <div className="grid grid-cols-2 gap-5">
                    <div className="flex flex-col gap-2">
-                       <label className="text-xs text-on-surface-variant font-semibold">Start Page</label>
-                       <input type="number" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Start Page</label>
+                       <input type="number" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm" />
                    </div>
                    <div className="flex flex-col gap-2">
-                       <label className="text-xs text-on-surface-variant font-semibold">End Page</label>
-                       <input type="number" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">End Page</label>
+                       <input type="number" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm" />
                    </div>
                </div>
            ) : (
-               <div className="grid grid-cols-3 gap-2">
+               <div className="grid grid-cols-3 gap-3">
                    <div className="flex flex-col gap-2">
-                       <label className="text-xs text-on-surface-variant font-semibold">VSAQ</label>
-                       <input type="number" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">VSAQ</label>
+                       <input type="number" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm text-center" />
                    </div>
                    <div className="flex flex-col gap-2">
-                       <label className="text-xs text-on-surface-variant font-semibold">SAQ</label>
-                       <input type="number" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">SAQ</label>
+                       <input type="number" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm text-center" />
                    </div>
                    <div className="flex flex-col gap-2">
-                       <label className="text-xs text-on-surface-variant font-semibold">LAQ</label>
-                       <input type="number" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-xs text-center outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">LAQ</label>
+                       <input type="number" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm text-center" />
                    </div>
                </div>
            )}
 
-           <div className="grid grid-cols-4 gap-2">
+           <div className="grid grid-cols-4 gap-3">
                <div className="flex flex-col gap-1">
-                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Active</label>
-                   <input type="number" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-primary" />
+                   <label className="text-[10px] uppercase text-zinc-400 font-bold">Active</label>
+                   <input type="number" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className="w-full ios-glass-input p-3 text-sm text-center font-bold text-primary" />
                </div>
                <div className="flex flex-col gap-1">
-                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Distract</label>
-                   <input type="number" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-error" />
+                   <label className="text-[10px] uppercase text-zinc-400 font-bold">Distract</label>
+                   <input type="number" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className="w-full ios-glass-input p-3 text-sm text-center font-bold text-error" />
                </div>
                <div className="flex flex-col gap-1">
-                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Recover</label>
-                   <input type="number" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-tertiary" />
+                   <label className="text-[10px] uppercase text-zinc-400 font-bold">Recover</label>
+                   <input type="number" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className="w-full ios-glass-input p-3 text-sm text-center font-bold text-sky-400" />
                </div>
                <div className="flex flex-col gap-1">
-                   <label className="text-[10px] uppercase text-on-surface-variant font-bold">Retention</label>
-                   <input type="number" min="1" max="10" value={props.logRetention} onChange={e => props.setLogRetention(e.target.value)} className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-2 text-sm text-center font-bold text-amber-400" />
+                   <label className="text-[10px] uppercase text-zinc-400 font-bold">Retention</label>
+                   <input type="number" min="1" max="10" value={props.logRetention} onChange={e => props.setLogRetention(e.target.value)} className="w-full ios-glass-input p-3 text-sm text-center font-bold text-amber-400" />
                </div>
            </div>
 
-           <div className="flex flex-col gap-2 border-t border-white/5 pt-4">
-               <div className="flex items-center justify-between">
-                   <label className="text-xs text-amber-400 font-bold tracking-wider uppercase flex items-center gap-1">
+           <div className="flex flex-col gap-0 mt-3">
+               <div className="flex items-center justify-between bg-amber-500/10 p-4 rounded-t-2xl border border-amber-500/20 border-b-0">
+                   <label className="text-xs text-amber-400 font-bold tracking-wider uppercase flex items-center gap-2">
                        <span className="material-symbols-outlined text-[16px]">gavel</span>
-                       Friction Point Analysis *
+                       Friction Point Analysis
                    </label>
-                   <button type="button" onClick={() => setShowScratchpad(true)} className="flex items-center gap-1 text-[10px] bg-amber-400/10 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/20 transition-colors font-bold cursor-pointer border border-amber-400/20">
+                   <button type="button" onClick={() => setShowScratchpad(true)} className="flex items-center gap-1.5 text-[10px] bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-500/30 transition-colors font-bold cursor-pointer border border-amber-500/20">
                        <span className="material-symbols-outlined text-[14px]">draw</span>
-                       Digital Scratchpad
+                       Scratchpad
                    </button>
                </div>
-               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="Pinpoint equation breakdowns or concepts that cost time (Min 10 characters)..." className="w-full bg-surface-container-lowest border border-amber-400/20 focus:border-amber-400/50 rounded-xl p-3 text-sm outline-none text-on-surface transition-colors" />
+               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="Pinpoint equation breakdowns or concepts that cost time (Min 10 characters)..." className="w-full bg-black/40 border border-amber-500/20 focus:border-amber-400/50 rounded-b-2xl p-4 text-sm outline-none text-white transition-colors" />
            </div>
 
            <div className="flex flex-col gap-2">
-               <label className="text-xs text-on-surface-variant font-semibold">Notes</label>
-               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder="General log annotations..." className="w-full bg-surface-container-lowest border border-white/5 rounded-xl p-3 text-sm text-on-surface outline-none" />
+               <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Notes</label>
+               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder="General log annotations..." className="w-full ios-glass-input p-4 text-sm" />
            </div>
 
-           <button onClick={handleSaveLog} className="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold text-sm tracking-wide shadow-md transition-all active:scale-[0.99] cursor-pointer">Commit Logs to Database Pipeline</button>
+           <button onClick={handleSaveLog} className="w-full py-4 mt-2 rounded-xl bg-primary text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98] cursor-pointer">Commit Logs to Database Pipeline</button>
         </div>
 
-        {/* Floating Digital Scratchpad Canvas Modal - With Contextually Typed Inline Events */}
+        {/* Floating Digital Scratchpad Canvas Modal */}
         {showScratchpad && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm fade-in">
-                <div className="glass-panel w-full max-w-2xl h-[60vh] rounded-3xl flex flex-col overflow-hidden border border-white/10 shadow-2xl relative bg-[#0a0f18]">
-                    <div className="flex justify-between items-center p-4 border-b border-white/10 bg-surface-container-lowest">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fade-in">
+                <div className="ios-glass-panel w-full max-w-4xl h-[75vh] flex flex-col overflow-hidden relative shadow-2xl">
+                    <div className="flex justify-between items-center p-5 border-b border-white/10 bg-black/20">
                         <div className="flex items-center gap-2 text-primary font-bold">
                             <span className="material-symbols-outlined">draw</span> Cognitive Scratchpad
                         </div>
-                        <div className="flex gap-2">
-                            <button type="button" onClick={clearCanvas} className="text-xs bg-surface-container px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors cursor-pointer border border-white/5">Clear Canvas</button>
-                            <button type="button" onClick={() => setShowScratchpad(false)} className="text-on-surface-variant hover:text-white cursor-pointer p-2"><span className="material-symbols-outlined">close</span></button>
+                        <div className="flex gap-3">
+                            <button type="button" onClick={clearCanvas} className="text-xs bg-white/5 px-5 py-2.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer border border-white/10 font-bold">Clear Canvas</button>
+                            <button type="button" onClick={() => setShowScratchpad(false)} className="text-zinc-400 hover:text-white cursor-pointer p-2 transition-colors"><span className="material-symbols-outlined">close</span></button>
                         </div>
                     </div>
                     <canvas 
                         ref={canvasRef} 
-                        onMouseDown={(e) => {
+                        onPointerDown={(e) => {
                             if (!canvasRef.current) return;
                             isDrawing.current = true;
                             const rect = canvasRef.current.getBoundingClientRect();
@@ -303,7 +305,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
                                 ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
                             }
                         }}
-                        onMouseMove={(e) => {
+                        onPointerMove={(e) => {
                             if (!isDrawing.current || !canvasRef.current) return;
                             const rect = canvasRef.current.getBoundingClientRect();
                             const ctx = canvasRef.current.getContext('2d');
@@ -312,40 +314,22 @@ export default function DailyLedger(props: DailyLedgerProps) {
                                 ctx.stroke();
                             }
                         }}
-                        onMouseUp={() => { isDrawing.current = false; }}
-                        onMouseLeave={() => { isDrawing.current = false; }}
-                        onTouchStart={(e) => {
-                            if (!canvasRef.current || e.touches.length === 0) return;
-                            isDrawing.current = true;
-                            const rect = canvasRef.current.getBoundingClientRect();
-                            const ctx = canvasRef.current.getContext('2d');
-                            if (ctx) {
-                                ctx.beginPath();
-                                ctx.moveTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
-                            }
-                        }}
-                        onTouchMove={(e) => {
-                            if (!isDrawing.current || !canvasRef.current || e.touches.length === 0) return;
-                            const rect = canvasRef.current.getBoundingClientRect();
-                            const ctx = canvasRef.current.getContext('2d');
-                            if (ctx) {
-                                ctx.lineTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
-                                ctx.stroke();
-                            }
-                        }}
-                        onTouchEnd={() => { isDrawing.current = false; }}
+                        onPointerUp={() => { isDrawing.current = false; }}
+                        onPointerLeave={() => { isDrawing.current = false; }}
                         className="flex-1 w-full cursor-crosshair touch-none" 
                     />
                 </div>
             </div>
         )}
 
-        <div className="flex flex-col gap-4 mt-2">
-            <h3 className="font-headline text-lg font-bold text-on-surface">Session Logs Confirmed Today</h3>
+        <div className="flex flex-col gap-4 mt-4">
+            <h3 className="font-headline text-lg font-bold text-zinc-100">Session Logs Confirmed Today</h3>
             {props.loggedSessions.length === 0 ? (
-                <p className="text-xs text-on-surface-variant font-medium italic">No activity logs recorded inside this deployment session.</p>
+                <div className="ios-glass-card-nested p-8 text-center border-dashed border-white/10">
+                    <p className="text-sm text-zinc-500 font-medium italic">No activity logs recorded inside this deployment session.</p>
+                </div>
             ) : (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4">
                    {props.loggedSessions.map((log) => {
                        const conf = getSubjectConfig(log.subject);
                        const score = getFocusScore(log);
@@ -354,25 +338,25 @@ export default function DailyLedger(props: DailyLedgerProps) {
                        if (log.vsaCount || log.saCount) metricsText = `VSAQ: ${log.vsaCount || 0} | SAQ: ${log.saCount || 0} | LAQ: ${log.laCount || 0}`;
                        
                        return (
-                          <div key={log.id} className="p-4 rounded-2xl bg-surface-container border border-white/5 flex flex-col gap-2 glass-panel">
+                          <div key={log.id} className="p-5 ios-glass-card-nested flex flex-col gap-3 transition-all duration-300">
                               <div className="flex justify-between items-start">
-                                  <div>
-                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${conf.bg} text-background mr-2`}>{conf.name}</span>
-                                      <span className="text-xs text-on-surface-variant font-mono bg-surface-container-lowest px-2 py-0.5 rounded">{log.sessionType}</span>
+                                  <div className="flex items-center gap-2">
+                                      <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase ${conf.bg} text-black tracking-wide`}>{conf.name}</span>
+                                      <span className="text-xs text-zinc-400 font-mono bg-black/30 border border-white/5 px-2.5 py-1 rounded-md">{log.sessionType}</span>
                                   </div>
-                                  <span className="text-xs font-bold text-on-surface-variant">Focus Score: <span className="text-[#50C878]">{score}%</span></span>
+                                  <span className="text-xs font-bold text-zinc-400 bg-black/20 border border-white/5 px-3 py-1.5 rounded-lg">Score: <span className="text-primary">{score}%</span></span>
                               </div>
-                              <h4 className="text-on-surface font-semibold text-md">{log.topic}</h4>
+                              <h4 className="text-zinc-100 font-semibold text-lg">{log.topic}</h4>
                               {log.frictionAnalysis && (
-                                  <p className="text-xs text-amber-400 bg-amber-400/5 p-2 rounded-lg border border-amber-400/10">
-                                      <strong>Friction Analysis:</strong> {log.frictionAnalysis}
+                                  <p className="text-xs text-amber-300 bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/20 leading-relaxed mt-1">
+                                      <strong className="text-amber-400">Friction:</strong> {log.frictionAnalysis}
                                   </p>
                               )}
-                              <div className="flex flex-wrap gap-4 text-xs text-on-surface-variant mt-1">
-                                  {metricsText && <span className="flex items-center gap-1 text-on-surface font-semibold"><span className="material-symbols-outlined text-[14px] text-primary">menu_book</span> {metricsText}</span>}
-                                  <span>{log.activeMins}m Active</span>
-                                  <span>{log.distractionMins}m Dist</span>
-                                  <span>Retention: {log.retentionScore}/10</span>
+                              <div className="flex flex-wrap gap-5 text-xs text-zinc-400 mt-2">
+                                  {metricsText && <span className="flex items-center gap-1.5 font-semibold text-zinc-300"><span className="material-symbols-outlined text-[16px] text-primary">menu_book</span> {metricsText}</span>}
+                                  <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">timer</span> {log.activeMins}m Active</span>
+                                  <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">warning</span> {log.distractionMins}m Dist</span>
+                                  <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">psychology</span> Ret: {log.retentionScore}/10</span>
                               </div>
                           </div>
                        );
