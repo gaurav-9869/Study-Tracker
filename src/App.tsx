@@ -7,7 +7,6 @@ import Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
 import { nanoid } from 'nanoid';
 
-// Premium Adaptive Wallpaper Palette Map (iOS Dynamic Contrast Configurations)
 interface WallpaperConfig {
   id: string;
   name: string;
@@ -21,21 +20,21 @@ const WALLPAPER_PRESETS: WallpaperConfig[] = [
     id: 'midnightNebula',
     name: 'Midnight Nebula',
     url: 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)',
-    primaryColor: '#10B981', // Emerald Green Accent
+    primaryColor: '#10B981', 
     glassOpacity: '0.45'
   },
   {
     id: 'crimsonSunset',
     name: 'Crimson Sunset',
     url: 'linear-gradient(135deg, #4c0519 0%, #0f172a 100%)',
-    primaryColor: '#F43F5E', // Rose Accent
+    primaryColor: '#F43F5E', 
     glassOpacity: '0.50'
   },
   {
     id: 'auroraBoreal',
     name: 'Aurora Borealis',
     url: 'radial-gradient(circle at bottom right, #064e3b 0%, #020617 100%)',
-    primaryColor: '#38BDF8', // Sky Blue Accent
+    primaryColor: '#38BDF8', 
     glassOpacity: '0.40'
   }
 ];
@@ -53,16 +52,12 @@ export default function App() {
   });
 
   const [isLoaded, setIsLoaded] = useState(false);
-
-  // --- NEW USER DISPLAY PIECE (GOOGLE PROFILE IDENTIFIERS) ---
   const [profileImg, setProfileImg] = useState<string | null>(null);
 
-  // --- NEW DYNAMIC THEME STATES ---
   const [activeWallpaper, setActiveWallpaper] = useState('midnightNebula');
   const [glassBlur, setGlassBlur] = useState(25);
   const [glassOpacity, setGlassOpacity] = useState(0.45);
 
-  // Load from local storage initialization loop
   useEffect(() => {
     const today = getLocalDateString(0);
     try {
@@ -70,11 +65,10 @@ export default function App() {
         const savedLog = localStorage.getItem(`pcbm_log_${today}`);
         const savedSettings = localStorage.getItem('pcbm_settings');
         
-        // Load Custom Dynamic Layout Settings if Saved
         const savedWallpaper = localStorage.getItem('ios_glass_wallpaper');
         const savedBlur = localStorage.getItem('ios_glass_blur');
         const savedOpacity = localStorage.getItem('ios_glass_opacity');
-        const savedImg = localStorage.getItem('google_profile_img'); // Fetch cached Google identity data
+        const savedImg = localStorage.getItem('google_profile_img'); 
 
         if (savedPlan) setMorningPlan(JSON.parse(savedPlan));
         if (savedLog) setLoggedSessions(JSON.parse(savedLog));
@@ -95,7 +89,6 @@ export default function App() {
     setIsLoaded(true);
   }, []);
 
-  // Save to local storage pipeline
   useEffect(() => {
     if (!isLoaded) return;
     const today = getLocalDateString(0);
@@ -108,7 +101,6 @@ export default function App() {
     localStorage.setItem('ios_glass_opacity', String(glassOpacity));
   }, [morningPlan, loggedSessions, userSettings, isLoaded, activeWallpaper, glassBlur, glassOpacity]);
 
-  // --- LIVE THEME VARIABLE OVERRIDE INJECTOR Loop ---
   useEffect(() => {
     const root = document.documentElement;
     const activeConfig = WALLPAPER_PRESETS.find(w => w.id === activeWallpaper) || WALLPAPER_PRESETS[0];
@@ -120,11 +112,8 @@ export default function App() {
   }, [activeWallpaper, glassBlur, glassOpacity]);
 
   const [isSyncing, setIsSyncing] = useState(false);
-
-  // Check if any telemetry is awaiting pipeline dispatch synchronization
   const hasUnsyncedLogs = loggedSessions.some(l => !l.synced);
 
-  // Google Calendar Integration Loops
   const createEventsForLog = async (token: string, log: LogItem) => {
     const datesToSchedule: { offset: number; type: string }[] = [];
     const todayNum = new Date().getDate();
@@ -285,8 +274,9 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen relative overflow-hidden select-none">
-      {/* Dynamic Native Fluid Wallpaper Element */}
+    // CRITICAL SCROLL FIX: Removed 'overflow-hidden' from root wrapper
+    <div className="flex min-h-screen relative w-full text-zinc-100">
+      
       <div className="ios-wallpaper-canvas" />
 
       <Sidebar 
@@ -298,7 +288,6 @@ export default function App() {
 
       <div className={`flex-1 flex flex-col transition-all duration-300 md:ml-64 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
         
-        {/* iOS Redesigned Top Header Bar */}
         <header className="ios-glass-panel rounded-t-none rounded-b-[24px] border-x-0 border-t-0 bg-opacity-30 dark:bg-opacity-20 flex justify-between items-center w-[calc(100%-2rem)] mx-4 mt-4 px-6 py-4 sticky top-0 z-50">
           <div className="flex items-center gap-4">
             <button 
@@ -309,7 +298,6 @@ export default function App() {
             <h1 className="font-headline tracking-tight text-xl font-bold text-zinc-100">Command Center</h1>
           </div>
 
-          {/* Right Status Panel Area */}
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-full border border-white/10 relative flex items-center justify-center overflow-hidden ios-glass-card-nested shadow-inner">
                <div className="w-full h-full flex items-center justify-center font-bold text-sm cursor-pointer text-zinc-200" onClick={() => setCurrentTab('account')}>
@@ -320,13 +308,11 @@ export default function App() {
                  )}
                </div>
                
-               {/* Telemetry Synchronization Pipeline Pulse Beacon */}
                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0a0f18] transition-colors duration-500 ${hasUnsyncedLogs ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`}></div>
             </div>
           </div>
         </header>
 
-        {/* Dashboard Frame Component Target Engine */}
         <main className="flex-1 max-w-7xl mx-auto w-full p-6 pb-24 flex flex-col">
             {currentTab === 'command' && (
               <CommandView 
@@ -343,7 +329,6 @@ export default function App() {
               <AccountView 
                 userSettings={userSettings} 
                 setUserSettings={setUserSettings}
-                // Forward theme variables down into your custom profile sliders layout
                 activeWallpaper={activeWallpaper}
                 setActiveWallpaper={setActiveWallpaper}
                 glassBlur={glassBlur}
