@@ -45,7 +45,6 @@ export default function DailyLedger(props: DailyLedgerProps) {
   const [frictionText, setFrictionText] = React.useState('');
   const [revisionDepth, setRevisionDepth] = React.useState('Standard Review');
 
-  // Digital Scratchpad safe-engine
   const [showScratchpad, setShowScratchpad] = React.useState(false);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const isDrawing = React.useRef(false); 
@@ -82,7 +81,8 @@ export default function DailyLedger(props: DailyLedgerProps) {
 
       const newLog: LogItem = {
           id: nanoid(),
-          associatedPlanId: props.logActivePlanId || undefined,
+          // CRITICAL COMPILER FIX: Strictly maps to your tracking pipeline ID
+          planId: props.logActivePlanId || undefined, 
           subject: props.logSubject,
           topic: props.logTopic.trim(),
           sessionType: props.logType,
@@ -166,7 +166,6 @@ export default function DailyLedger(props: DailyLedgerProps) {
     <section className="flex flex-col gap-6 w-full animate-fade-in">
         <h2 className="font-headline text-2xl tracking-tight text-zinc-100 font-bold">Logging Dashboard</h2>
         
-        {/* iOS Liquid Glass Panel Application */}
         <div className="ios-glass-panel p-6 flex flex-col gap-6">
            <div className="flex flex-col gap-2">
                <label className="text-xs text-primary font-bold tracking-wider uppercase">Telemetry AI Auto-Fill</label>
@@ -280,7 +279,6 @@ export default function DailyLedger(props: DailyLedgerProps) {
            <button onClick={handleSaveLog} className="w-full py-4 mt-2 rounded-xl bg-primary text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98] cursor-pointer">Commit Logs to Database Pipeline</button>
         </div>
 
-        {/* Floating Digital Scratchpad Canvas Modal */}
         {showScratchpad && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fade-in">
                 <div className="ios-glass-panel w-full max-w-4xl h-[75vh] flex flex-col overflow-hidden relative shadow-2xl">
