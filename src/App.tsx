@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { PlanItem, LogItem, UserSettings, getLocalDateString, getFocusScore, getSubjectConfig } from './types';
 import CommandView from './components/CommandView';
 import ArchiveView from './components/ArchiveView';
@@ -7,35 +7,32 @@ import Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
 import { nanoid } from 'nanoid';
 
-interface WallpaperConfig {
+// --- ADAPTIVE THEME CONFIGURATION ---
+export interface WallpaperConfig {
   id: string;
   name: string;
   url: string;
   primaryColor: string;
-  glassOpacity: string;
 }
 
-const WALLPAPER_PRESETS: WallpaperConfig[] = [
+export const WALLPAPER_PRESETS: WallpaperConfig[] = [
   {
     id: 'midnightNebula',
     name: 'Midnight Nebula',
     url: 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)',
-    primaryColor: '#10B981', 
-    glassOpacity: '0.45'
+    primaryColor: '#10B981', // Emerald Green
   },
   {
     id: 'crimsonSunset',
     name: 'Crimson Sunset',
     url: 'linear-gradient(135deg, #4c0519 0%, #0f172a 100%)',
-    primaryColor: '#F43F5E', 
-    glassOpacity: '0.50'
+    primaryColor: '#F43F5E', // Rose
   },
   {
     id: 'auroraBoreal',
     name: 'Aurora Borealis',
     url: 'radial-gradient(circle at bottom right, #064e3b 0%, #020617 100%)',
-    primaryColor: '#38BDF8', 
-    glassOpacity: '0.40'
+    primaryColor: '#38BDF8', // Sky Blue
   }
 ];
 
@@ -52,30 +49,58 @@ export default function App() {
   });
 
   const [isLoaded, setIsLoaded] = useState(false);
-  const [profileImg, setProfileImg] = useState<string | null>(null);
 
+  // Identity and Theme State
+  const [profileImg, setProfileImg] = useState<string | null>(null);
   const [activeWallpaper, setActiveWallpaper] = useState('midnightNebula');
-  const [glassBlur, setGlassBlur] = useState(25);
+  const [glassBlur, setGlassBlur] = useState(24);
   const [glassOpacity, setGlassOpacity] = useState(0.45);
 
+  // useLayoutEffect runs BEFORE the browser paints the screen, eliminating the "Blue to Red" color flicker!
+  useLayoutEffect(() => {
+    const savedWallpaper = localStorage.getItem('ios_glass_wallpaper') || 'midnightNebula';
+    const savedBlur = localStorage.getItem('ios_glass_blur');
+    const savedOpacity = localStorage.getItem('ios_glass_opacity');
+    
+    if (savedWallpaper) setActiveWallpaper(savedWallpaper);
+    if (savedBlur) setGlassBlur(Number(savedBlur));
+    if (savedOpacity) setGlassOpacity(Number(savedOpacity));
+
+    const root = document.documentElement;
+    const activeConfig = WALLPAPER_PRESETS.find(w => w.id === savedWallpaper) || WALLPAPER_PRESETS[0];
+    root.style.setProperty('--wallpaper-url', activeConfig.url);
+    root.style.setProperty('--theme-primary', activeConfig.primaryColor);
+    root.style.setProperty('--glass-blur', `${savedBlur || 24}px`);
+    root.style.setProperty('--glass-opacity', savedOpacity || '0.45');
+  }, []);
+
+  // Update root CSS variables when theme state changes
+  useEffect(() => {
+    if (!isLoaded) return;
+    const root = document.documentElement;
+    const activeConfig = WALLPAPER_PRESETS.find(w => w.id === activeWallpaper) || WALLPAPER_PRESETS[0];
+    root.style.setProperty('--wallpaper-url', activeConfig.url);
+    root.style.setProperty('--theme-primary', activeConfig.primaryColor);
+    root.style.setProperty('--glass-blur', `${glassBlur}px`);
+    root.style.setProperty('--glass-opacity', String(glassOpacity));
+    
+    localStorage.setItem('ios_glass_wallpaper', activeWallpaper);
+    localStorage.setItem('ios_glass_blur', String(glassBlur));
+    localStorage.setItem('ios_glass_opacity', String(glassOpacity));
+  }, [activeWallpaper, glassBlur, glassOpacity, isLoaded]);
+
+  // Load core data from local storage
   useEffect(() => {
     const today = getLocalDateString(0);
     try {
         const savedPlan = localStorage.getItem(`pcbm_plan_${today}`);
         const savedLog = localStorage.getItem(`pcbm_log_${today}`);
         const savedSettings = localStorage.getItem('pcbm_settings');
+        const savedImg = localStorage.getItem('google_profile_img');
         
-        const savedWallpaper = localStorage.getItem('ios_glass_wallpaper');
-        const savedBlur = localStorage.getItem('ios_glass_blur');
-        const savedOpacity = localStorage.getItem('ios_glass_opacity');
-        const savedImg = localStorage.getItem('google_profile_img'); 
-
         if (savedPlan) setMorningPlan(JSON.parse(savedPlan));
         if (savedLog) setLoggedSessions(JSON.parse(savedLog));
         if (savedImg) setProfileImg(savedImg);
-        if (savedWallpaper) setActiveWallpaper(savedWallpaper);
-        if (savedBlur) setGlassBlur(Number(savedBlur));
-        if (savedOpacity) setGlassOpacity(Number(savedOpacity));
 
         if (savedSettings) {
             const parsed = JSON.parse(savedSettings);
@@ -84,36 +109,24 @@ export default function App() {
             setUserSettings(parsed);
         }
     } catch (e) {
-        console.error("Failed parsing storage pipeline", e);
+        console.error("Failed loading data", e);
     }
     setIsLoaded(true);
   }, []);
 
+  // Save core data to local storage
   useEffect(() => {
     if (!isLoaded) return;
     const today = getLocalDateString(0);
     localStorage.setItem(`pcbm_plan_${today}`, JSON.stringify(morningPlan));
     localStorage.setItem(`pcbm_log_${today}`, JSON.stringify(loggedSessions));
     localStorage.setItem('pcbm_settings', JSON.stringify(userSettings));
-
-    localStorage.setItem('ios_glass_wallpaper', activeWallpaper);
-    localStorage.setItem('ios_glass_blur', String(glassBlur));
-    localStorage.setItem('ios_glass_opacity', String(glassOpacity));
-  }, [morningPlan, loggedSessions, userSettings, isLoaded, activeWallpaper, glassBlur, glassOpacity]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const activeConfig = WALLPAPER_PRESETS.find(w => w.id === activeWallpaper) || WALLPAPER_PRESETS[0];
-
-    root.style.setProperty('--wallpaper-url', activeConfig.url);
-    root.style.setProperty('--color-primary', activeConfig.primaryColor);
-    root.style.setProperty('--glass-blur', `${glassBlur}px`);
-    root.style.setProperty('--glass-opacity', String(glassOpacity));
-  }, [activeWallpaper, glassBlur, glassOpacity]);
+  }, [morningPlan, loggedSessions, userSettings, isLoaded]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const hasUnsyncedLogs = loggedSessions.some(l => !l.synced);
 
+  // Original sync functions kept intact
   const createEventsForLog = async (token: string, log: LogItem) => {
     const datesToSchedule: { offset: number; type: string }[] = [];
     const todayNum = new Date().getDate();
@@ -158,7 +171,7 @@ export default function App() {
                 }
             }
         } catch (e) {
-            console.error("Idempotency pipeline failure", e);
+            console.error(e);
         }
 
         let title = '';
@@ -206,7 +219,7 @@ export default function App() {
                 }
             })
         });
-        if (!res.ok) throw new Error("API responded status: " + res.status);
+        if (!res.ok) throw new Error("API status: " + res.status);
     }
   };
 
@@ -244,7 +257,7 @@ export default function App() {
     
     if (!token || !expires || Date.now() > Number(expires)) {
         localStorage.removeItem('gcal_token');
-        alert("Google Calendar authentication session expired. Please re-verify inside the Account node panel.");
+        alert("Google Calendar authentication expired. Please re-verify inside the Account panel.");
         setIsSyncing(false);
         return;
     }
@@ -259,24 +272,33 @@ export default function App() {
             }
         }
         setLoggedSessions([...finalLogs]);
-        if(successCount > 0) alert(`Successfully committed and synchronized ${successCount} session data nodes!`);
-        else alert("Data engine pipeline is already synchronized.");
+        if(successCount > 0) alert(`Successfully committed ${successCount} session logs!`);
+        else alert("Data is already synchronized.");
     } catch(err: any) {
         if (err.message.includes('401')) {
             localStorage.removeItem('gcal_token');
-            alert("Google Calendar token signature invalid. Re-authenticate inside Account framework.");
+            alert("Google Calendar token invalid. Re-authenticate inside Account panel.");
         } else {
-            alert("Pipeline exception error: " + err.message);
+            alert("Pipeline error: " + err.message);
         }
     } finally {
         setIsSyncing(false);
     }
   };
 
+  // Dynamic Header Title Mapping (Fixes the stuck header bug)
+  const getHeaderTitle = () => {
+      switch(currentTab) {
+          case 'archive': return 'Archive & History';
+          case 'account': return 'System Preferences';
+          default: return 'Command Center';
+      }
+  };
+
   return (
-    // CRITICAL SCROLL FIX: Removed 'overflow-hidden' from root wrapper
     <div className="flex min-h-screen relative w-full text-zinc-100">
       
+      {/* Background Liquid Canvas */}
       <div className="ios-wallpaper-canvas" />
 
       <Sidebar 
@@ -288,32 +310,41 @@ export default function App() {
 
       <div className={`flex-1 flex flex-col transition-all duration-300 md:ml-64 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
         
-        <header className="ios-glass-panel rounded-t-none rounded-b-[24px] border-x-0 border-t-0 bg-opacity-30 dark:bg-opacity-20 flex justify-between items-center w-[calc(100%-2rem)] mx-4 mt-4 px-6 py-4 sticky top-0 z-50">
+        {/* Dynamic Translucent Header */}
+        <header className="ios-glass-panel rounded-t-none rounded-b-[24px] border-x-0 border-t-0 bg-opacity-30 flex justify-between items-center w-[calc(100%-2rem)] mx-4 mt-4 px-6 py-4 sticky top-0 z-50">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="md:hidden text-primary hover:bg-white/10 transition-all p-2 rounded-full cursor-pointer">
               <span className="material-symbols-outlined">menu</span>
             </button>
-            <h1 className="font-headline tracking-tight text-xl font-bold text-zinc-100">Command Center</h1>
+            <h1 className="text-xl font-bold tracking-tight text-white animate-ios-fade-in" key={currentTab}>
+                {getHeaderTitle()}
+            </h1>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full border border-white/10 relative flex items-center justify-center overflow-hidden ios-glass-card-nested shadow-inner">
-               <div className="w-full h-full flex items-center justify-center font-bold text-sm cursor-pointer text-zinc-200" onClick={() => setCurrentTab('account')}>
+            {/* Sync Status Beacon & Profile Identity */}
+            <div 
+              className="w-10 h-10 rounded-full border border-white/10 relative flex items-center justify-center overflow-hidden ios-glass-card-nested shadow-inner cursor-pointer" 
+              onClick={() => setCurrentTab('account')}
+            >
+               <div className="w-full h-full flex items-center justify-center font-bold text-sm text-zinc-200">
                  {profileImg ? (
-                     <img src={profileImg} alt="User Account display avatar" className="w-full h-full object-cover" />
+                     <img src={profileImg} alt="Avatar" className="w-full h-full object-cover" />
                  ) : (
                      userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'A'
                  )}
                </div>
                
+               {/* Pulse Indicator */}
                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0a0f18] transition-colors duration-500 ${hasUnsyncedLogs ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`}></div>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 max-w-7xl mx-auto w-full p-6 pb-24 flex flex-col">
+        {/* Dynamic Route Container */}
+        <main className="flex-1 max-w-7xl mx-auto w-full p-6 pb-24 flex flex-col animate-ios-fade-in">
             {currentTab === 'command' && (
               <CommandView 
                 morningPlan={morningPlan} 
@@ -329,13 +360,16 @@ export default function App() {
               <AccountView 
                 userSettings={userSettings} 
                 setUserSettings={setUserSettings}
+                
+                // We pass these down so AccountView can manipulate them, but it won't break if AccountView is the old original file.
+                // We'll update AccountView in Step 3 to use these.
                 activeWallpaper={activeWallpaper}
                 setActiveWallpaper={setActiveWallpaper}
                 glassBlur={glassBlur}
                 setGlassBlur={setGlassBlur}
                 glassOpacity={glassOpacity}
                 setGlassOpacity={setGlassOpacity}
-                presets={WALLPAPER_PRESETS}
+                presets={WALLPAPER_PRESETS as any}
               />
             )}
         </main>
@@ -351,7 +385,6 @@ export default function App() {
               <p className="text-error/90 font-medium text-[11px] px-6 text-center max-w-xl bg-error/5 border border-error/10 py-1.5 rounded-xl">
                 Accountability Warning: Unlogged items score 0% and commit permanently as MISSED.
               </p>
-              <div className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest">Core Engine v2.1.0</div>
             </footer>
         )}
 
