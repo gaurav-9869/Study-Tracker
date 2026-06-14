@@ -1,18 +1,24 @@
-import { defineConfig } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
 
-// https://vitejs.dev/config/
-export default defineConfig({
-  // Binds asset generation directly to your case-sensitive repo name
-  base: '/Axion/',
-  plugins: [react()],
-  server: {
-    port: 3000,
-    open: true
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-    minify: 'esbuild'
-  }
+export default defineConfig(({mode}) => {
+  const env = loadEnv(mode, '.', '');
+  return {
+    // Relocking base to your active case-sensitive repository path to prevent asset loading failure
+    base: '/Axion/',
+    plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      },
+    },
+    server: {
+      hmr: process.env.DISABLE_HMR !== 'true',
+    },
+  };
 });
