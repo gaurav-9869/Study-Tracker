@@ -1,149 +1,241 @@
 import React, { useState, useEffect } from 'react';
-import { UserSettings } from '../types';
+import { UserSettings, getSubjectConfig } from '../types';
+
+declare var google: any;
 
 interface AccountViewProps {
-  userSettings: UserSettings;
-  setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
+    userSettings: UserSettings;
+    setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
 }
 
 export default function AccountView({ userSettings, setUserSettings }: AccountViewProps) {
-  const [gcalConnected, setGcalConnected] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [hasToken, setHasToken] = useState(false);
+  const [userProfile, setUserProfile] = useState<{name: string, picture: string, email: string} | null>(null);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('gcal_token');
-    const savedKey = localStorage.getItem('gemini_api_key') || '';
-    setGcalConnected(!!token);
-    setApiKeyInput(savedKey);
+     const token = localStorage.getItem('gcal_token');
+     const expires = localStorage.getItem('gcal_token_expires');
+     const apiKey = localStorage.getItem('gemini_api_key');
+     if (apiKey) setGeminiKey(apiKey);
+     
+     if (token && expires && Date.now() < Number(expires)) {
+         setHasToken(true);
+         const profile = localStorage.getItem('gcal_profile');
+         if (profile) {
+             try { setUserProfile(JSON.parse(profile)); } catch(e) {}
+         } else {
+             fetchUserProfile(token);
+         }
+     } else {
+         if (token) {
+             localStorage.removeItem('gcal_token');
+             localStorage.removeItem('gcal_token_expires');
+         }
+         setHasToken(false);
+     }
   }, []);
 
-  const handleProfileChange = (field: keyof UserSettings, value: string) => {
-    setUserSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleGeminiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setGeminiKey(e.target.value);
+      localStorage.setItem('gemini_api_key', e.target.value);
   };
 
-  const handleSaveApiKey = () => {
-    localStorage.setItem('gemini_api_key', apiKeyInput.trim());
-    alert('Gemini API Key saved locally.');
-  };
-
-  const handleConnectGoogleCalendar = () => {
-    try {
-      const client = (window as any).google?.accounts?.oauth2?.initTokenClient({
-        client_id: '868114092040-421bphuod8v48pve5juh7q601daj824g.apps.googleusercontent.com',
-        scope: 'https://www.googleapis.com/auth/calendar.events',
-        callback: async (tokenResponse: any) => {
-          if (tokenResponse.access_token) {
-            localStorage.setItem('gcal_token', tokenResponse.access_token);
-            setGcalConnected(true);
-            
-            // Fetch profile data seamlessly in background
-            try {
-              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { 'Authorization': `Bearer ${tokenResponse.access_token}` }
-              });
-              if (res.ok) {
-                const profileData = await res.json();
-                localStorage.setItem('gcal_profile', JSON.stringify(profileData));
-              }
-            } catch (e) {}
-            
-            alert('Google Calendar connection established successfully!');
+  const fetchUserProfile = async (token: string) => {
+      try {
+          const res = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+              headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+              const data = await res.json();
+              setUserProfile(data);
+              localStorage.setItem('gcal_profile', JSON.stringify(data));
           }
-        },
-      });
-      client.requestAccessToken({ prompt: 'consent' });
-    } catch (e) {
-      alert('Google API script not loaded completely.');
-    }
+      } catch (err) { console.error("Failed to fetch profile", err); }
   };
 
-  const handleDisconnectGoogle = () => {
-    localStorage.removeItem('gcal_token');
-    localStorage.removeItem('gcal_profile');
-    setGcalConnected(false);
-    alert('Google Calendar credentials removed safely.');
+  const handleConnect = () => {
+     try {
+         const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
+         if (!clientId || clientId === 'your_google_client_id_here') {
+             alert("Please configure VITE_GOOGLE_CLIENT_ID in your environment variables/secrets.");
+             return;
+         }
+         const client = google.accounts.oauth2.initTokenClient({
+             client_id: clientId,
+             scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+             prompt: 'consent', 
+             callback: (response: any) => {
+                 if (response.error) {
+                     alert("Auth error: " + response.error);
+                 } else {
+                     localStorage.setItem('gcal_token', response.access_token);
+                     localStorage.setItem('gcal_token_expires', String(Date.now() + response.expires_in * 1000));
+                     setHasToken(true);
+                     fetchUserProfile(response.access_token);
+                 }
+             },
+         });
+         client.requestAccessToken();
+     } catch(err: any) { alert("Error setting up Calendar OAuth: " + err.message); }
   };
 
-  const glassStyle = {
-    backdropFilter: 'blur(var(--glass-blur, 24px))',
-    WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
-    backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))'
+  const handleDisconnect = () => {
+      localStorage.removeItem('gcal_token');
+      localStorage.removeItem('gcal_profile');
+      setHasToken(false);
+      setUserProfile(null);
   };
+
+  const exportData = () => {
+      const data: Record<string, any> = {};
+      for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('pcbm_')) {
+             try { data[key] = JSON.parse(localStorage.getItem(key) || ''); } 
+             catch(e) { data[key] = localStorage.getItem(key); }
+          }
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `axion-export-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+  };
+
+  const handleAddSubject = () => {
+      const trimmed = newSubjectName.trim().toLowerCase();
+      if (!trimmed) return;
+      if (!userSettings.activeSubjects.includes(trimmed as any)) {
+          setUserSettings(prev => ({
+              ...prev,
+              activeSubjects: [...prev.activeSubjects, trimmed as any]
+          }));
+      }
+      setNewSubjectName('');
+  };
+
+  const allKnownSubjects = Array.from(new Set(['phys', 'chem', 'bio', 'math', ...userSettings.activeSubjects]));
 
   return (
-    <div className="ios-glass-panel p-6 flex flex-col gap-6 w-full max-w-2xl mx-auto animate-ios-fade-in text-zinc-100" style={glassStyle}>
-      
-      {/* Profile Section */}
-      <div className="flex flex-col gap-4 bg-white/[0.02] border border-white/[0.06] p-5 rounded-2xl">
-         <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">account_circle</span>
-            Profile Info
-         </h3>
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-               <label className="text-xs text-zinc-400 font-medium">Your Name</label>
-               <input 
-                 type="text" 
-                 value={userSettings.name} 
-                 onChange={(e) => handleProfileChange('name', e.target.value)}
-                 className="ios-glass-input p-3.5 text-sm rounded-xl bg-black/10 border-white/[0.06] outline-none text-white focus:border-primary/30"
-                 placeholder="Name..."
-               />
-            </div>
-            <div className="flex flex-col gap-2">
-               <label className="text-xs text-zinc-400 font-medium">Class / Stream</label>
-               <input 
-                 type="text" 
-                 value={userSettings.className} 
-                 onChange={(e) => handleProfileChange('className', e.target.value)}
-                 className="ios-glass-input p-3.5 text-sm rounded-xl bg-black/10 border-white/[0.06] outline-none text-white focus:border-primary/30"
-                 placeholder="e.g., 11th Grade PCBM"
-               />
-            </div>
-         </div>
-      </div>
+    <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto text-zinc-100">
+        {/* Uniform neutral glass panel styling */}
+        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 sm:p-10 flex flex-col gap-10 shadow-2xl">
+             
+             {/* SECTION 1: USER IDENTITY */}
+             <div className="flex flex-col gap-5 border-b border-white/10 pb-8">
+                 <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[18px]">badge</span> User Identity
+                 </h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                     <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Name</label>
+                        <input 
+                           type="text" value={userSettings.name} 
+                           onChange={e => setUserSettings(prev => ({...prev, name: e.target.value}))} 
+                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-white/30 transition-colors" 
+                           placeholder="e.g. Rahul"
+                        />
+                     </div>
+                     <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Target Class / Stream</label>
+                        <input 
+                           type="text" value={userSettings.className} 
+                           onChange={e => setUserSettings(prev => ({...prev, className: e.target.value}))} 
+                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-white/30 transition-colors" 
+                           placeholder="e.g. 11th PCBM"
+                        />
+                     </div>
+                     <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Gemini Protocol API Key</label>
+                        <input 
+                           type="password" value={geminiKey} onChange={handleGeminiKeyChange} 
+                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm font-mono outline-none focus:border-white/30 transition-colors" 
+                           placeholder="AI Analysis features require an active API key."
+                        />
+                     </div>
+                 </div>
+             </div>
 
-      {/* API Integrations and Data Bridges */}
-      <div className="flex flex-col gap-4 bg-white/[0.02] border border-white/[0.06] p-5 rounded-2xl">
-         <h3 className="text-xs font-bold uppercase tracking-widest text-sky-400 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">sync_alt</span>
-            Bridges & Integrations
-         </h3>
+             {/* SECTION 2: SUBJECT MANAGER */}
+             <div className="flex flex-col gap-5 border-b border-white/10 pb-8">
+                 <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[18px]">category</span> Subject Tracking
+                 </h3>
+                 <div>
+                    <label className="block text-[12px] font-medium text-zinc-400 mb-4">Toggle subjects to include them in your daily Planner & Logger menus.</label>
+                    <div className="flex flex-wrap gap-3 mb-5">
+                        {allKnownSubjects.map(sub => {
+                            const isChecked = userSettings.activeSubjects.includes(sub as any);
+                            const conf = getSubjectConfig(sub);
+                            return (
+                               <label key={sub} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'bg-white/20 border-white/30 text-white' : 'bg-black/20 border-white/5 text-zinc-400 hover:bg-black/40'}`}>
+                                   <input 
+                                      type="checkbox" className="hidden" checked={isChecked}
+                                      onChange={(e) => {
+                                          if (e.target.checked) setUserSettings(prev => ({ ...prev, activeSubjects: [...prev.activeSubjects, sub as any] }));
+                                          else setUserSettings(prev => ({ ...prev, activeSubjects: prev.activeSubjects.filter(s => s !== sub) }));
+                                      }}
+                                   />
+                                   <span className="font-semibold text-sm capitalize">{conf.name}</span>
+                                   {isChecked && <span className="material-symbols-outlined text-[16px] ml-1">check</span>}
+                               </label>
+                            );
+                        })}
+                    </div>
+                 </div>
+             </div>
+             
+             {/* SECTION 3: CLOUD & LOCAL DATA */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="flex flex-col gap-4">
+                     <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
+                         <span className="material-symbols-outlined text-[18px]">cloud_sync</span> Synchronization
+                     </h3>
+                     <div className="flex flex-col justify-between p-6 bg-black/20 border border-white/5 rounded-2xl h-full gap-6">
+                         <div className="flex items-center gap-4">
+                             {userProfile ? (
+                                 <img src={userProfile.picture} alt="Profile" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border-2 border-white/20" />
+                             ) : (
+                                 <div className="w-12 h-12 bg-white/10 flex items-center justify-center rounded-full border border-white/5">
+                                    <span className="material-symbols-outlined text-[24px] text-zinc-400">account_circle</span>
+                                 </div>
+                             )}
+                             <div>
+                                 <h4 className="font-bold text-zinc-100 text-base">{userProfile ? userProfile.name : 'Disconnected'}</h4>
+                                 <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                                     {hasToken ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> {userProfile?.email}</> : 'Requires Google OAuth'}
+                                 </p>
+                             </div>
+                         </div>
+                         {hasToken ? (
+                             <button onClick={handleDisconnect} className="w-full text-sm px-6 py-3.5 rounded-xl border border-red-500/50 bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer transition-colors font-bold mt-auto">Disconnect Account</button>
+                         ) : (
+                             <button onClick={handleConnect} className="w-full text-sm px-6 py-3.5 rounded-xl bg-white text-black hover:bg-zinc-200 cursor-pointer transition-all font-bold mt-auto">Sign In with Google</button>
+                         )}
+                     </div>
+                 </div>
 
-         <div className="flex flex-col gap-2">
-            <label className="text-xs text-zinc-400 font-medium">Gemini API Key</label>
-            <div className="flex gap-2">
-               <input 
-                 type="password" 
-                 value={apiKeyInput} 
-                 onChange={(e) => setApiKeyInput(e.target.value)}
-                 className="flex-1 ios-glass-input p-3.5 text-sm rounded-xl bg-black/10 border-white/[0.06] outline-none text-white focus:border-primary/30"
-                 placeholder="AI Studio Token Access Key..."
-               />
-               <button onClick={handleSaveApiKey} className="px-5 bg-sky-500 text-white text-xs font-bold rounded-xl hover:bg-sky-600 transition-all cursor-pointer shadow-md">
-                  Save
-               </button>
-            </div>
-         </div>
+                 <div className="flex flex-col gap-4">
+                     <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
+                         <span className="material-symbols-outlined text-[18px]">hard_drive</span> Cold Storage
+                     </h3>
+                     <div className="flex flex-col justify-between p-6 bg-black/20 border border-white/5 rounded-2xl h-full gap-4">
+                         <div>
+                             <h4 className="font-bold text-zinc-100 text-base">Local Data Export</h4>
+                             <p className="text-[12px] text-zinc-400 leading-relaxed mt-2">Download a structured JSON copy of all your tracked study hours, goals, and history.</p>
+                         </div>
+                         <button onClick={exportData} className="w-full text-sm px-6 py-3.5 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 cursor-pointer transition-colors flex items-center justify-center gap-2 font-bold mt-auto">
+                             <span className="material-symbols-outlined text-[18px]">download</span> Export Database
+                         </button>
+                     </div>
+                 </div>
+             </div>
 
-         <div className="flex flex-col gap-2 mt-3 border-t border-white/5 pt-4">
-            <div className="flex items-center justify-between">
-               <div className="flex items-center gap-2 text-xs">
-                  <div className={`w-2.5 h-2.5 rounded-full ${gcalConnected ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`}></div>
-                  <span className="text-zinc-300 font-medium">{gcalConnected ? 'Google Cloud Online' : 'Google Cloud Offline'}</span>
-               </div>
-               {gcalConnected ? (
-                  <button onClick={handleDisconnectGoogle} className="text-xs text-error font-bold hover:underline cursor-pointer">Disconnect</button>
-               ) : (
-                  <button onClick={handleConnectGoogleCalendar} className="text-xs text-primary font-bold hover:underline cursor-pointer">Connect Calendar</button>
-               )}
-            </div>
-         </div>
-      </div>
-
+        </div>
     </div>
   );
 }
