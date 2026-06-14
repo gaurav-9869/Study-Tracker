@@ -1,69 +1,44 @@
 import React from 'react';
-import { LogItem } from '../types';
+import { LogItem, getFocusScore, getSubjectConfig } from '../types';
 
 interface ConceptVelocityProps {
   loggedSessions: LogItem[];
 }
 
-const HARDCODED_TOPICS = [
-  'Cell Cycle', 
-  'Kinematics', 
-  'Chemical Bonding', 
-  'Calculus Fundamentals', 
-  'Genetics', 
-  'Thermodynamics', 
-  'Atomic Structure'
-];
-
 export default function ConceptVelocity({ loggedSessions }: ConceptVelocityProps) {
-  // Aggregate unique topics that match the syllabus array
-  const masteredTopics = new Set<string>();
-  
-  loggedSessions.forEach(log => {
-      // Very simple matching check
-      const logTopicNormal = log.topic.toLowerCase().trim();
-      HARDCODED_TOPICS.forEach(t => {
-          if (t.toLowerCase() === logTopicNormal) {
-              masteredTopics.add(t);
-          }
-      });
-  });
-
-  const total = HARDCODED_TOPICS.length;
-  const current = masteredTopics.size;
-  const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+  // Pull last 7 logged records safely to map timeline trends
+  const displayWindowNodes = loggedSessions.slice(-7);
 
   return (
-    <section className="w-full fade-in">
-        <h2 className="font-headline text-headline-md text-on-surface font-bold mb-6">Concept Velocity Dashboard</h2>
-        
-        <div className="glass-panel ghost-border p-8 flex flex-col gap-6 bg-surface-container-low max-w-2xl">
-           <div className="flex justify-between items-end">
-               <div>
-                  <h3 className="text-xl font-headline font-bold text-on-surface">High-Yield Topics Mastered</h3>
-                  <p className="text-sm text-on-surface-variant font-medium mt-1">Syllabus Completion</p>
-               </div>
-               <span className="text-3xl font-black text-primary">{current} <span className="text-xl text-on-surface-variant font-medium">/ {total}</span></span>
-           </div>
+    <div className="w-full flex flex-col gap-4 text-zinc-100">
+      <div className="flex flex-col gap-0.5">
+         <h4 className="text-sm font-bold text-white uppercase tracking-wider">Concept Velocity Axis</h4>
+         <p className="text-xs text-zinc-500">Chronological analysis tracker of recent sessions.</p>
+      </div>
 
-           <div className="w-full h-4 bg-surface-container-lowest rounded-full overflow-hidden shadow-inner border border-white/5">
-                <div 
-                    className="h-full bg-gradient-to-r from-primary to-tertiary-container transition-all duration-1000 ease-out rounded-full"
-                    style={{ width: `${percentage}%` }}
-                ></div>
-           </div>
-           
-           <div className="flex gap-2 flex-wrap mt-2">
-               {HARDCODED_TOPICS.map(topic => {
-                   const isMastered = masteredTopics.has(topic);
-                   return (
-                       <span key={topic} className={`text-xs px-3 py-1.5 rounded-md font-medium border ${isMastered ? 'bg-primary/20 text-primary border-primary/30' : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/10 opacity-50'}`}>
-                           {topic}
-                       </span>
-                   )
-               })}
-           </div>
-        </div>
-    </section>
+      {displayWindowNodes.length === 0 ? (
+         <div className="p-6 text-center text-zinc-600 text-xs italic font-medium">
+             Awaiting historical completion telemetry datasets...
+         </div>
+      ) : (
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+             {displayWindowNodes.map((log) => {
+                 const config = getSubjectConfig(log.subject);
+                 const focus = getFocusScore(log);
+                 return (
+                     <div key={log.id} className="bg-black/20 border border-white/[0.04] p-4 rounded-xl flex flex-col gap-2 relative overflow-hidden">
+                         <div className="absolute top-0 right-0 left-0 h-[2px]" style={{ backgroundColor: config.color }} />
+                         <div className="flex justify-between items-start w-full">
+                             <span className={`text-[10px] font-bold uppercase tracking-wider ${config.text}`}>{config.name}</span>
+                             <span className="text-[10px] font-mono text-zinc-500 font-bold bg-black/30 border border-white/5 px-2 py-0.5 rounded-md">Focus: {focus}%</span>
+                         </div>
+                         <h5 className="text-sm font-bold text-zinc-200 truncate mt-1">{log.topic}</h5>
+                         <span className="text-[11px] text-zinc-500 font-medium">Duration: {log.activeMins}m active focus ring</span>
+                     </div>
+                 );
+             })}
+         </div>
+      )}
+    </div>
   );
 }
