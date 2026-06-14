@@ -13,16 +13,19 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
   });
   const [isRunningAnalysis, setIsRunningAnalysis] = useState(false);
 
-  // --- PRE-MADE CHART 1: SUBJECT DISTRIBUTION GRAPH MATH ---
-  const subjectDistribution = { bio: 0, phys: 0, chem: 0, math: 0 };
+  // Type-Safe explicit subject accumulator record matching your types system
+  const subjectDistribution: Record<SubjectKey, number> = { bio: 0, phys: 0, chem: 0, math: 0 };
+  
   loggedSessions.forEach(log => {
-    if (subjectDistribution[log.subject] !== undefined) {
-      subjectDistribution[log.subject] += log.activeMins;
+    const sub = log.subject;
+    if (sub === 'bio' || sub === 'phys' || sub === 'chem' || sub === 'math') {
+      subjectDistribution[sub] += log.activeMins;
     }
   });
+  
   const totalActiveMins = Object.values(subjectDistribution).reduce((a, b) => a + b, 0) || 1;
 
-  // --- PRE-MADE CHART 2: FOCUS VS DISTRACTION RATIOS ---
+  // Distraction Profiler Calculations
   let totalStudy = 0, totalDistract = 0, totalRecover = 0;
   loggedSessions.forEach(log => {
     totalStudy += log.activeMins;
@@ -31,14 +34,12 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
   });
   const totalTimeMatrix = totalStudy + totalDistract + totalRecover || 1;
 
-  // --- PRE-MADE CHART 3: PEAK PERFORMANCE HOURS BY TIME BLOCK ---
-  // Simple mapping bucket system to evaluate time performance tags cleanly
+  // Time-Block Performance Metrics Mapping
   const hourBuckets = { morning: 0, afternoon: 0, evening: 0, night: 0 };
   const hourCounts = { morning: 0, afternoon: 0, evening: 0, night: 0 };
   
   loggedSessions.forEach(log => {
     const score = getFocusScore(log);
-    // Simple mock heuristic split to simulate timeline variations based on log intervals
     const idNum = parseInt(log.id.replace(/\D/g, '')) || 12;
     const estimatedHour = idNum % 24;
 
@@ -64,7 +65,6 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
 
     setIsRunningAnalysis(true);
     try {
-      // Process minimal textual weight context matrix from 2-year archival schemas
       const structuralContextPayload = loggedSessions.map(l => ({
         subject: l.subject,
         topic: l.topic,
@@ -72,15 +72,12 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
         focus: getFocusScore(l),
         retention: l.retentionScore || 5,
         friction: l.frictionAnalysis || 'None'
-      })).slice(-30); // Grab last 30 nodes for compact text balance window constraints
+      })).slice(-30);
 
       const reqBody = {
         contents: [{
           parts: [{
-            text: `Analyze this study log array history data: ${JSON.stringify(structuralContextPayload)}. 
-            Identify patterns, recurring topics, and obstacles. 
-            Output format MUST be raw JSON format matching this shape exactly: 
-            { "frictionSpotlight": "string brief paragraph summary", "trendCalibration": "string brief paragraph summary", "retentionAlerts": "string brief paragraph summary" }`
+            text: `Analyze this study log array history data: ${JSON.stringify(structuralContextPayload)}. Identify patterns, recurring topics, and obstacles. Output format MUST be raw JSON format matching this shape exactly: { "frictionSpotlight": "string brief paragraph summary", "trendCalibration": "string brief paragraph summary", "retentionAlerts": "string brief paragraph summary" }`
           }]
         }]
       };
@@ -116,10 +113,10 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
   return (
     <div className="flex flex-col gap-8 w-full animate-ios-fade-in text-zinc-100 transition-all duration-500">
       
-      {/* Top Pre-Made Graphic Dashboard Row */}
+      {/* Visual Chart Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Graph 1: Subject Time Allocation Proportions */}
+        {/* Graph 1: Distribution */}
         <div className="ios-glass-panel p-5 flex flex-col gap-4" style={glassStyle}>
           <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-white/5 pb-2">Subject Distribution</h3>
           <div className="flex flex-col gap-3.5 justify-center h-full">
@@ -141,34 +138,32 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
           </div>
         </div>
 
-        {/* Graph 2: Focus / Distraction Split Matrix */}
+        {/* Graph 2: Ratios */}
         <div className="ios-glass-panel p-5 flex flex-col gap-4" style={glassStyle}>
           <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-white/5 pb-2">Attention Ratio Profile</h3>
-          <div className="flex items-center justify-center h-full gap-5">
-            <div className="flex flex-col gap-2 text-xs font-medium w-full">
-              <div className="flex items-center justify-between">
-                <span className="text-primary flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" /> Active Study</span>
-                <span className="font-mono text-zinc-400">{Math.round((totalStudy / totalTimeMatrix) * 100)}%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-error flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-error" /> Distraction</span>
-                <span className="font-mono text-zinc-400">{Math.round((totalDistract / totalTimeMatrix) * 100)}%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sky-400 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-400" /> Recovery Break</span>
-                <span className="font-mono text-zinc-400">{Math.round((totalRecover / totalTimeMatrix) * 100)}%</span>
-              </div>
+          <div className="flex flex-col justify-center h-full gap-2 text-xs font-medium w-full">
+            <div className="flex items-center justify-between">
+              <span className="text-primary flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" /> Active Study</span>
+              <span className="font-mono text-zinc-400">{Math.round((totalStudy / totalTimeMatrix) * 100)}%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-error flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-error" /> Distraction</span>
+              <span className="font-mono text-zinc-400">{Math.round((totalDistract / totalTimeMatrix) * 100)}%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sky-400 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-400" /> Recovery Break</span>
+              <span className="font-mono text-zinc-400">{Math.round((totalRecover / totalTimeMatrix) * 100)}%</span>
             </div>
           </div>
         </div>
 
-        {/* Graph 3: Peak Efficiency Velocity Hours Block */}
+        {/* Graph 3: Hours Peak */}
         <div className="ios-glass-panel p-5 flex flex-col gap-4" style={glassStyle}>
           <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-white/5 pb-2">Peak Velocity Hours</h3>
           <div className="grid grid-cols-4 gap-2 items-end h-32 pt-4">
             {Object.entries(avgHours).map(([block, val]) => (
               <div key={block} className="flex flex-col items-center gap-2 h-full justify-end">
-                <div className="w-full bg-primary/20 border border-primary/30 rounded-t-lg transition-all duration-1000 relative group flex items-end justify-center" style={{ height: `${Math.max(val, 15)}%` }}>
+                <div className="w-full bg-primary/20 border border-primary/30 rounded-t-lg transition-all duration-1000 relative flex items-end justify-center" style={{ height: `${Math.max(val, 15)}%` }}>
                   <span className="absolute -top-6 text-[10px] font-mono font-bold text-primary">{val}%</span>
                 </div>
                 <span className="text-[9px] uppercase tracking-wider font-bold text-zinc-500 truncate max-w-full">{block}</span>
@@ -179,7 +174,7 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
 
       </div>
 
-      {/* Cognitive Insights Control Center Block */}
+      {/* Gemini Strategy Insights Pane */}
       <div className="ios-glass-panel p-6 flex flex-col gap-6 w-full" style={glassStyle}>
         <div className="flex justify-between items-center border-b border-white/5 pb-4">
           <div className="flex items-center gap-2.5">
@@ -189,16 +184,14 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
           <button 
             onClick={handleRunLLMAnalysis} 
             disabled={isRunningAnalysis || loggedSessions.length === 0}
-            className="px-5 py-2.5 bg-primary hover:bg-emerald-600 disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary/10 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-primary hover:bg-emerald-600 disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">autorenew</span>
-            {isRunningAnalysis ? 'Compiling Archive Trends...' : 'Run Cognitive Analysis'}
+            {isRunningAnalysis ? 'Analyzing Archive...' : 'Run Cognitive Analysis'}
           </button>
         </div>
 
-        {/* Analytical Output Card Slots */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
-          
           <div className="bg-black/15 border border-white/[0.04] p-4 rounded-xl flex flex-col gap-2">
             <span className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[15px]">gavel</span> Friction Spotlight
@@ -219,7 +212,6 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
             </span>
             <p className="text-xs text-zinc-400 leading-relaxed font-medium mt-1">{insights.retentionAlerts}</p>
           </div>
-
         </div>
       </div>
 
