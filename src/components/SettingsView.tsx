@@ -1,118 +1,135 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
 interface SettingsViewProps {
-  glassBlur: number;
-  setGlassBlur: (v: number) => void;
-  glassOpacity: number;
-  setGlassOpacity: (v: number) => void;
+    glassBlur: number;
+    setGlassBlur: (val: number) => void;
+    glassOpacity: number;
+    setGlassOpacity: (val: number) => void;
 }
 
-export default function SettingsView({ glassBlur, setGlassBlur, glassOpacity, setGlassOpacity }: SettingsViewProps) {
+export default function SettingsView({ 
+    glassBlur, 
+    setGlassBlur, 
+    glassOpacity, 
+    setGlassOpacity 
+}: SettingsViewProps) {
   
-  const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value.trim();
-    if (url) {
-      localStorage.setItem('custom_wallpaper_url', url);
-      // Trigger live refresh across the background canvas DOM node
-      const root = document.documentElement;
-      root.style.setProperty('--wallpaper-url', `url(${url})`);
-      
-      // Attempt color extraction handshake across the new target file
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          canvas.width = 10;
-          canvas.height = 10;
-          ctx.drawImage(img, 0, 0, 10, 10);
-          try {
-            const rgb = ctx.getImageData(5, 5, 1, 1).data;
-            const extractedHex = `#${rgb[0].toString(16).padStart(2,'0')}${rgb[1].toString(16).padStart(2,'0')}${rgb[2].toString(16).padStart(2,'0')}`;
-            if (rgb[0] > 30 || rgb[1] > 30) {
-              root.style.setProperty('--theme-primary', extractedHex);
-              localStorage.setItem('custom_wallpaper_color', extractedHex);
-            }
-          } catch (err) {}
-        }
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Goal #6: Algorithmic Color Extraction Engine
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          const img = new Image();
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
+              if (ctx) {
+                  canvas.width = 100;
+                  canvas.height = Math.floor(100 * (img.height / img.width));
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  
+                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                  let r = 0, g = 0, b = 0, a = 0;
+                  
+                  for (let i = 0; i < imgData.data.length; i += 4) {
+                      r += imgData.data[i];
+                      g += imgData.data[i + 1];
+                      b += imgData.data[i + 2];
+                      a++;
+                  }
+                  
+                  r = Math.floor(r / a);
+                  g = Math.floor(g / a);
+                  b = Math.floor(b / a);
+                  
+                  const max = Math.max(r, g, b);
+                  if (max > 0) {
+                      const boost = 255 / max;
+                      r = Math.min(255, Math.floor(r * boost * 0.8));
+                      g = Math.min(255, Math.floor(g * boost * 0.8));
+                      b = Math.min(255, Math.floor(b * boost * 0.8));
+                  }
+                  
+                  const dominantColor = `rgb(${r}, ${g}, ${b})`;
+
+                  document.documentElement.style.setProperty('--wallpaper-url', `url(${dataUrl})`);
+                  document.documentElement.style.setProperty('--theme-primary', dominantColor);
+                  
+                  localStorage.setItem('custom_wallpaper_url', dataUrl);
+                  localStorage.setItem('custom_wallpaper_color', dominantColor);
+              }
+          };
+          img.src = dataUrl;
       };
-      img.src = url;
-    }
-  };
-
-  const clearWallpaper = () => {
-    localStorage.removeItem('custom_wallpaper_url');
-    localStorage.removeItem('custom_wallpaper_color');
-    const root = document.documentElement;
-    root.style.setProperty('--wallpaper-url', 'radial-gradient(circle at top left, #1c1917 0%, #070a12 100%)');
-    root.style.setProperty('--theme-primary', '#10B981');
-    alert("Wallpaper configurations reset to clean baseline style.");
-  };
-
-  const glassStyle = {
-    backdropFilter: 'blur(var(--glass-blur, 24px))',
-    WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
-    backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))'
+      reader.readAsDataURL(file);
   };
 
   return (
-    <div className="ios-glass-panel p-6 flex flex-col gap-6 w-full max-w-2xl mx-auto animate-ios-fade-in text-zinc-100" style={glassStyle}>
-      
-      <div className="border-b border-white/5 pb-3">
-        <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px]">palette</span>
-          Appearance Settings
-        </h3>
-      </div>
+    <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto text-zinc-100">
+        {/* Goal #7 & #8: Uniform, neutral panel styling without the blue tint */}
+        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 sm:p-10 flex flex-col gap-10 shadow-2xl">
+             
+             <div className="flex flex-col gap-5 border-b border-white/10 pb-8">
+                 <h3 className="text-sm font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[18px]">palette</span> Workspace Interface
+                 </h3>
+                 
+                 <div className="flex flex-col gap-4">
+                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Adaptive Wallpaper Engine</label>
+                     <p className="text-[12px] text-zinc-400 max-w-xl leading-relaxed">
+                         Upload an image. The internal canvas engine will analyze the image data and automatically re-render the application's primary accents to match the dominant color scheme.
+                     </p>
+                     
+                     <input 
+                         type="file" 
+                         accept="image/*" 
+                         className="hidden" 
+                         ref={fileInputRef} 
+                         onChange={handleFileUpload} 
+                     />
+                     <button 
+                         onClick={() => fileInputRef.current?.click()}
+                         className="flex items-center justify-center gap-3 w-full py-5 rounded-2xl border-2 border-dashed border-white/20 hover:border-emerald-400/50 hover:bg-white/5 transition-all cursor-pointer font-bold tracking-wide"
+                     >
+                         <span className="material-symbols-outlined text-[24px] text-emerald-400">imagesmode</span>
+                         Upload Custom Wallpaper
+                     </button>
+                 </div>
 
-      {/* Wallpaper Input Form */}
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Custom Background Wallpaper URL</label>
-        <div className="flex gap-3">
-          <input 
-            type="text" 
-            placeholder="Paste direct high-res link image path..." 
-            onChange={handleWallpaperChange}
-            className="flex-1 ios-glass-input px-4 py-3 text-sm rounded-xl bg-black/10 border-white/[0.06] outline-none text-white focus:border-primary/30"
-          />
-          <button 
-            onClick={clearWallpaper}
-            className="px-4 bg-white/5 hover:bg-white/10 text-xs font-bold rounded-xl border border-white/10 transition-colors cursor-pointer"
-          >
-            Reset
-          </button>
+                 {/* Goal #10 & #11: Repaired Background Blur Depth Sliders */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6 bg-black/20 p-6 rounded-2xl border border-white/5">
+                     <div className="flex flex-col gap-3">
+                         <div className="flex justify-between items-center text-xs">
+                             <label className="font-semibold text-zinc-400 uppercase tracking-wider">Background Blur Depth</label>
+                             <span className="font-mono bg-black/40 border border-white/10 px-2 py-1 rounded text-emerald-400 font-bold">{glassBlur}px</span>
+                         </div>
+                         <input 
+                             type="range" min="4" max="48" step="1" 
+                             value={glassBlur} 
+                             onChange={(e) => setGlassBlur(Number(e.target.value))}
+                             className="w-full accent-emerald-400 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                         />
+                     </div>
+                     <div className="flex flex-col gap-3">
+                         <div className="flex justify-between items-center text-xs">
+                             <label className="font-semibold text-zinc-400 uppercase tracking-wider">Panel Opacity</label>
+                             <span className="font-mono bg-black/40 border border-white/10 px-2 py-1 rounded text-emerald-400 font-bold">{Math.round(glassOpacity * 100)}%</span>
+                         </div>
+                         <input 
+                             type="range" min="0.10" max="0.90" step="0.05" 
+                             value={glassOpacity} 
+                             onChange={(e) => setGlassOpacity(Number(e.target.value))}
+                             className="w-full accent-emerald-400 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                         />
+                     </div>
+                 </div>
+             </div>
         </div>
-      </div>
-
-      {/* Frosted Background Blur Slider Matrix */}
-      <div className="flex flex-col gap-2 mt-2">
-        <div className="flex justify-between items-center">
-          <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Background Blur Depth</label>
-          <span className="text-xs font-mono font-bold text-primary">{glassBlur}px</span>
-        </div>
-        <input 
-          type="range" min="0" max="40" step="2"
-          value={glassBlur}
-          onChange={(e) => setGlassBlur(Number(e.target.value))}
-          className="w-full accent-primary h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
-        />
-      </div>
-
-      {/* Dynamic Panel Opacity Controller */}
-      <div className="flex flex-col gap-2 mt-2">
-        <div className="flex justify-between items-center">
-          <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Panel Transparency Opacity</label>
-          <span className="text-xs font-mono font-bold text-primary">{Math.round(glassOpacity * 100)}%</span>
-        </div>
-        <input 
-          type="range" min="0.10" max="0.85" step="0.05"
-          value={glassOpacity}
-          onChange={(e) => setGlassOpacity(Number(e.target.value))}
-          className="w-full accent-primary h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
-        />
-      </div>
-
     </div>
   );
 }
