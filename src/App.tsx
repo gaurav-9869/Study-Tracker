@@ -340,16 +340,17 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen relative w-full text-zinc-100">
+    <div className="flex min-h-screen max-w-full overflow-x-hidden relative text-zinc-100 bg-[#060a12]">
       
       {/* Structural wallpaper canvas backing layout layer */}
       <div 
         className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-500" 
         style={{ 
-          backgroundImage: wallpaperStyle ? `url(${wallpaperStyle})` : 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)' 
+          backgroundImage: wallpaperStyle ? `url(${wallpaperStyle})` : 'radial-gradient(circle at top left, #121026 0%, #05080f 100%)' 
         }} 
       />
 
+      {/* Sidebar menu container is now explicitly part of the dynamic glass engine */}
       <Sidebar 
         currentTab={currentTab} 
         setTab={setCurrentTab} 
@@ -361,11 +362,22 @@ export default function App() {
 
       <div className={`flex-1 flex flex-col transition-all duration-300 relative z-10 md:ml-64 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
         
-        <header className="ios-glass-panel rounded-t-none rounded-b-[24px] border-x-0 border-t-0 bg-opacity-30 flex justify-between items-center w-[calc(100%-2rem)] mx-4 mt-4 px-6 py-4 sticky top-0 z-50">
+        {/* Top Header Bar: Restored to strict uniform frosted glass alignment */}
+        <header 
+          className="ios-glass-panel rounded-t-none rounded-b-[24px] border-x-0 border-t-0 flex justify-between items-center w-[calc(100%-2rem)] mx-4 mt-4 px-6 py-4 sticky top-0 z-50 transition-all duration-500"
+          style={{
+            backdropFilter: 'blur(var(--glass-blur, 24px))',
+            WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
+            backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))',
+            borderColor: 'rgba(255, 255, 255, 0.1)'
+          }}
+        >
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="md:hidden text-primary hover:bg-white/10 transition-all p-2 rounded-full cursor-pointer">
+              className="md:hidden hover:bg-white/10 transition-all p-2 rounded-full cursor-pointer"
+              style={{ color: 'var(--theme-primary, #10B981)' }}
+            >
               <span className="material-symbols-outlined">menu</span>
             </button>
             <h1 className="text-xl font-bold tracking-tight text-white animate-ios-fade-in" key={currentTab}>
@@ -375,7 +387,8 @@ export default function App() {
 
           <div className="flex items-center gap-4">
             <div 
-              className="w-10 h-10 rounded-full border border-white/10 relative flex items-center justify-center cursor-pointer group hover:border-white/30 transition-all bg-black/40" 
+              className="w-10 h-10 rounded-full border relative flex items-center justify-center cursor-pointer group transition-all bg-black/40" 
+              style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}
               onClick={() => setCurrentTab('account')}
             >
                <div className="w-full h-full flex items-center justify-center font-bold text-sm text-zinc-200 overflow-hidden rounded-full">
@@ -385,12 +398,19 @@ export default function App() {
                      userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'U'
                  )}
                </div>
-               <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0a0f18] transition-colors duration-500 ${hasUnsyncedLogs ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`}></div>
+               
+               {/* Setting indicator ring color matches extracted wallpaper primary tone */}
+               <div 
+                 className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full border flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors shadow-md z-10 bg-zinc-900"
+                 style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}
+               >
+                 <span className="material-symbols-outlined text-[11px]" style={{ color: 'var(--theme-primary)' }}>settings</span>
+               </div>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 max-w-7xl mx-auto w-full p-6 pb-24 flex flex-col animate-ios-fade-in">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 flex flex-col overflow-y-auto min-w-0">
             {currentTab === 'command' && (
               <CommandView 
                 morningPlan={morningPlan} 
@@ -407,32 +427,33 @@ export default function App() {
               <AccountView 
                 userSettings={userSettings} 
                 setUserSettings={setUserSettings}
-                activeWallpaper={''}
-                setActiveWallpaper={() => {}}
                 glassBlur={glassBlur}
                 setGlassBlur={setGlassBlur}
                 glassOpacity={glassOpacity}
                 setGlassOpacity={setGlassOpacity}
-                presets={[]}
-              />
-            )}
-            {currentTab === 'settings' && (
-              <SettingsView 
-                glassBlur={glassBlur}
-                setGlassBlur={setGlassBlur}
-                glassOpacity={glassOpacity}
-                setGlassOpacity={setGlassOpacity}
+                setWallpaperStyle={setWallpaperStyle}
               />
             )}
         </main>
 
+        {/* Restore Calendar Sync Button Tray: Frosted and color-synced */}
         {currentTab === 'command' && (
-            <footer className="ios-glass-panel rounded-b-none rounded-t-[28px] border-x-0 border-b-0 w-[calc(100%-2rem)] mx-4 py-4 flex flex-col justify-center items-center gap-3 mt-auto">
+            <footer 
+              className="ios-glass-panel rounded-b-none rounded-t-[28px] border-x-0 border-b-0 w-[calc(100%-2rem)] mx-4 py-4 flex flex-col justify-center items-center gap-3 mt-auto transition-all duration-500"
+              style={{
+                backdropFilter: 'blur(var(--glass-blur, 24px))',
+                WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
+                backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))',
+                borderColor: 'rgba(255, 255, 255, 0.1)'
+              }}
+            >
               <button 
                 onClick={handleCloseDay} 
                 disabled={isSyncing}
-                className={`text-primary font-bold hover:underline font-headline text-sm tracking-wide transition-all ${isSyncing ? 'opacity-50 cursor-wait' : 'cursor-pointer active:opacity-70'}`}>
-                 {isSyncing ? 'Syncing data...' : 'Save Logs & Sync to Calendar'}
+                className="font-bold hover:underline font-headline text-sm tracking-wide transition-all cursor-pointer active:opacity-70"
+                style={{ color: 'var(--theme-primary, #10B981)' }}
+              >
+                 {isSyncing ? 'Syncing with Google...' : 'Save Logs & Sync to Calendar'}
               </button>
               <p className="text-error/90 font-medium text-[11px] px-6 text-center max-w-xl bg-error/5 border border-error/10 py-1.5 rounded-xl">
                 Note: Planned tasks left incomplete at the end of the day will be recorded as missed.
@@ -449,4 +470,3 @@ export default function App() {
       </div>
     </div>
   );
-}
