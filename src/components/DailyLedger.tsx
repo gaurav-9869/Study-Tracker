@@ -320,29 +320,107 @@ export default function DailyLedger(props: DailyLedgerProps) {
         </div>
 
         {/* Goal #22: Scratchpad Canvas Modal */}
+        {/* ========================================================================= */}
+        {/* REPLACE ONLY THE showScratchpad CANCED FRAME CONTEXT BLOCK WITH THIS:     */}
+        {/* ========================================================================= */}
         {showScratchpad && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md transition-opacity">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md transition-opacity">
                 <div className="bg-[#0b0f19] border border-white/10 w-full max-w-4xl h-[75vh] flex flex-col overflow-hidden relative rounded-[32px] shadow-2xl">
-                    <div className="flex justify-between items-center p-5 border-b border-white/10 bg-black/20">
-                        <div className="flex items-center gap-4 text-zinc-300 font-bold text-sm uppercase tracking-wider">
-                            <span className="material-symbols-outlined">draw</span> Sketch Pad
+                    
+                    {/* Cleaned Actions Layout Panel Wrapper */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 border-b border-white/10 bg-black/20">
+                        <div className="flex items-center gap-2.5 text-zinc-300 font-bold text-sm uppercase tracking-wider">
+                            <span className="material-symbols-outlined text-primary">draw</span> 
+                            <span>Sketch Pad</span>
                         </div>
-                        <div className="flex items-center gap-3">
+
+                        {/* Multi-Color Ink Palette Selector Dots */}
+                        <div className="flex items-center gap-3 bg-black/40 px-4 py-2 rounded-2xl border border-white/5">
+                            <span className="material-symbols-outlined text-zinc-500 text-xs">palette</span>
+                            {[
+                                { color: '#10B981', label: 'Emerald' },
+                                { color: '#EC4899', label: 'Bio Pink' },
+                                { color: '#3B82F6', label: 'Phys Blue' },
+                                { color: '#F59E0B', label: 'Amber' },
+                                { color: '#EF4444', label: 'Crimson' }
+                            ].map((cfg) => (
+                                <button
+                                    key={cfg.color}
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEraserMode(false);
+                                        if (canvasRef.current) {
+                                            const ctx = canvasRef.current.getContext('2d');
+                                            if (ctx) ctx.strokeStyle = cfg.color;
+                                        }
+                                    }}
+                                    className="w-5 h-5 rounded-full border border-white/20 transition-transform active:scale-95 cursor-pointer"
+                                    style={{ backgroundColor: cfg.color }}
+                                    title={cfg.label}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Modernized Icon Control Set */}
+                        <div className="flex items-center gap-2.5">
                             <button 
-                               type="button" onClick={() => setIsEraserMode(!isEraserMode)} 
-                               className={`text-xs px-4 py-2.5 rounded-xl border transition-all font-bold cursor-pointer ${isEraserMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'}`}
+                               type="button" 
+                               onClick={() => setIsEraserMode(!isEraserMode)} 
+                               className={`p-2.5 rounded-xl border transition-all flex items-center justify-center cursor-pointer ${isEraserMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'}`}
+                               title={isEraserMode ? "Switch to Drawing Pen" : "Switch to Eraser"}
                             >
-                                <span className="flex items-center gap-1.5">
-                                    <span className="material-symbols-outlined text-[16px]">{isEraserMode ? 'edit' : 'ink_eraser'}</span>
-                                    {isEraserMode ? 'Pen Mode' : 'Eraser Mode'}
+                                <span className="material-symbols-outlined text-[20px]">
+                                    {isEraserMode ? 'edit' : 'ink_eraser'}
                                 </span>
                             </button>
-                            <button type="button" onClick={clearCanvas} className="text-xs bg-white/5 px-4 py-2.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer border border-white/10 font-bold">Clear Canvas</button>
-                            <button type="button" onClick={() => { syncCanvasDataString(); setShowScratchpad(false); }} className="bg-white text-black text-xs px-5 py-2.5 rounded-xl font-bold cursor-pointer shadow-md">Save & Close</button>
+
+                            <button 
+                                type="button" 
+                                onClick={clearCanvas} 
+                                className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
+                                title="Clear Canvas"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">delete_forever</span>
+                            </button>
+
+                            <button 
+                                type="button" 
+                                onClick={() => { syncCanvasDataString(); setShowScratchpad(false); }} 
+                                className="bg-white text-black p-2.5 px-4 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                <span>Save</span>
+                            </button>
                         </div>
                     </div>
+
+                    {/* Hardware Touch-Block Listeners Prevent Tablet Edge Jitter Distortion */}
                     <canvas 
                         ref={canvasRef} 
+                        onTouchStart={(e) => {
+                            if (!canvasRef.current) return;
+                            e.preventDefault(); 
+                            isDrawing.current = true;
+                            const rect = canvasRef.current.getBoundingClientRect();
+                            const touch = e.touches[0];
+                            const ctx = canvasRef.current.getContext('2d');
+                            if (ctx) {
+                                ctx.beginPath();
+                                ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                            }
+                        }}
+                        onTouchMove={(e) => {
+                            if (!isDrawing.current || !canvasRef.current) return;
+                            e.preventDefault();
+                            const rect = canvasRef.current.getBoundingClientRect();
+                            const touch = e.touches[0];
+                            const ctx = canvasRef.current.getContext('2d');
+                            if (ctx) {
+                                ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                                ctx.stroke();
+                            }
+                        }}
+                        onTouchEnd={() => { isDrawing.current = false; syncCanvasDataString(); }}
                         onPointerDown={(e) => {
                             if (!canvasRef.current) return;
                             isDrawing.current = true;
@@ -369,6 +447,3 @@ export default function DailyLedger(props: DailyLedgerProps) {
                 </div>
             </div>
         )}
-    </section>
-  );
-}
