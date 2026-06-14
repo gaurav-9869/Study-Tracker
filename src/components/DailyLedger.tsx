@@ -46,14 +46,16 @@ export default function DailyLedger(props: DailyLedgerProps) {
   const [revisionDepth, setRevisionDepth] = useState('Standard Review');
   const [isAiPopulated, setIsAiPopulated] = useState(false);
 
-  // Goal #22: Scratchpad Engine Canvas Setup
+  // Scratchpad Controls & Multi-Ink Color States
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [isEraserMode, setIsEraserMode] = useState(false);
+  const [activeInkColor, setActiveInkColor] = useState('#10B981'); // Tracks chosen palette color
   const [canvasDrawingData, setCanvasDrawingData] = useState<string | undefined>(undefined);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
 
-  // Bulletproof drawing rendering loops that prevent asynchronous context clearing
+  // Canvas initialization and layer mounting engine
   useEffect(() => {
     if (showScratchpad) {
       const initCanvas = () => {
@@ -66,8 +68,8 @@ export default function DailyLedger(props: DailyLedgerProps) {
         if (ctx) {
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.lineWidth = isEraserMode ? 18 : 3;
-            ctx.strokeStyle = isEraserMode ? '#0a0f18' : '#10B981';
+            ctx.lineWidth = isEraserMode ? 24 : 3;
+            ctx.strokeStyle = isEraserMode ? '#0a0f18' : activeInkColor;
         }
         
         if (canvasDrawingData) {
@@ -76,10 +78,9 @@ export default function DailyLedger(props: DailyLedgerProps) {
             img.src = canvasDrawingData;
         }
       };
-      // requestAnimationFrame guarantees the element mounts completely before calculating dimensions
       requestAnimationFrame(initCanvas);
     }
-  }, [showScratchpad, isEraserMode]);
+  }, [showScratchpad, isEraserMode, activeInkColor]);
 
   const clearCanvas = () => {
       if (canvasRef.current) {
@@ -192,10 +193,9 @@ export default function DailyLedger(props: DailyLedgerProps) {
 
   return (
     <section className="flex flex-col gap-6 w-full text-zinc-100">
-        {/* Goal #7 & #8: Strict tint-free frosted panel borders */}
-        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 flex flex-col gap-6 shadow-2xl">
+        <div className="ios-glass-panel p-6 flex flex-col gap-6">
            
-           {/* Goal #5: Simplified, normal wording */}
+           {/* Quick Log input wrapper */}
            <div className="flex flex-col gap-2">
                <label className="text-xs text-zinc-400 font-bold tracking-wider uppercase">Quick Log input</label>
                <div className="flex gap-2">
@@ -319,22 +319,18 @@ export default function DailyLedger(props: DailyLedgerProps) {
            <button onClick={handleSaveLog} className="w-full py-4 mt-2 rounded-xl bg-white text-black font-bold text-sm tracking-wide shadow-xl hover:bg-zinc-200 transition-all active:scale-[0.99] cursor-pointer">Save Session Log</button>
         </div>
 
-        {/* Goal #22: Scratchpad Canvas Modal */}
-        {/* ========================================================================= */}
-        {/* REPLACE ONLY THE showScratchpad CANCED FRAME CONTEXT BLOCK WITH THIS:     */}
-        {/* ========================================================================= */}
+        {/* Scratchpad Overlay Canvas Frame */}
         {showScratchpad && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md transition-opacity">
                 <div className="bg-[#0b0f19] border border-white/10 w-full max-w-4xl h-[75vh] flex flex-col overflow-hidden relative rounded-[32px] shadow-2xl">
                     
-                    {/* Cleaned Actions Layout Panel Wrapper */}
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 border-b border-white/10 bg-black/20">
                         <div className="flex items-center gap-2.5 text-zinc-300 font-bold text-sm uppercase tracking-wider">
                             <span className="material-symbols-outlined text-primary">draw</span> 
                             <span>Sketch Pad</span>
                         </div>
 
-                        {/* Multi-Color Ink Palette Selector Dots */}
+                        {/* Multi-Color Choice Nodes */}
                         <div className="flex items-center gap-3 bg-black/40 px-4 py-2 rounded-2xl border border-white/5">
                             <span className="material-symbols-outlined text-zinc-500 text-xs">palette</span>
                             {[
@@ -349,19 +345,19 @@ export default function DailyLedger(props: DailyLedgerProps) {
                                     type="button"
                                     onClick={() => {
                                         setIsEraserMode(false);
-                                        if (canvasRef.current) {
-                                            const ctx = canvasRef.current.getContext('2d');
-                                            if (ctx) ctx.strokeStyle = cfg.color;
-                                        }
+                                        setActiveInkColor(cfg.color);
                                     }}
                                     className="w-5 h-5 rounded-full border border-white/20 transition-transform active:scale-95 cursor-pointer"
-                                    style={{ backgroundColor: cfg.color }}
+                                    style={{ 
+                                        backgroundColor: cfg.color,
+                                        transform: activeInkColor === cfg.color && !isEraserMode ? 'scale(1.2)' : 'scale(1)' 
+                                    }}
                                     title={cfg.label}
                                 />
                             ))}
                         </div>
 
-                        {/* Modernized Icon Control Set */}
+                        {/* Text replaced with premium icons */}
                         <div className="flex items-center gap-2.5">
                             <button 
                                type="button" 
@@ -394,7 +390,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
                         </div>
                     </div>
 
-                    {/* Hardware Touch-Block Listeners Prevent Tablet Edge Jitter Distortion */}
+                    {/* Touch event blocks fix gesture distortion on your Xiaomi tablet */}
                     <canvas 
                         ref={canvasRef} 
                         onTouchStart={(e) => {
@@ -447,3 +443,6 @@ export default function DailyLedger(props: DailyLedgerProps) {
                 </div>
             </div>
         )}
+    </section>
+  );
+}
