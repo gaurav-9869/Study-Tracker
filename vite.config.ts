@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  // Matching your exact repository folder casing to clear the white screen block
-  base: '/Axion/',
+  // Setting base to an empty string forces completely relative asset generation
+  base: '',
   plugins: [react()],
   server: {
     port: 3000,
