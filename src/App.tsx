@@ -12,12 +12,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [morningPlan, setMorningPlan] = useState<PlanItem[]>([]);
   const [loggedSessions, setLoggedSessions] = useState<LogItem[]>([]);
-  const [userSettings, setUserSettings] = useState<UserSettings>({
-      name: '',
-      className: '',
-      activeSubjects: ['bio', 'phys', 'chem', 'math'],
-      subjectGoals: {}
-  });
+  const [userSettings, setUserSettings] = useState<UserSettings>({\n      name: '',\n      className: '',\n      activeSubjects: ['bio', 'phys', 'chem', 'math'],\n      subjectGoals: {}\n  });
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [profileImg, setProfileImg] = useState<string | null>(null);
@@ -38,14 +33,12 @@ export default function App() {
 
     const root = document.documentElement;
     
-    // Inject Custom Image or Default Fallback
     if (customUrl) {
        root.style.setProperty('--wallpaper-url', `url(${customUrl})`);
     } else {
        root.style.setProperty('--wallpaper-url', 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)');
     }
     
-    // Inject Extracted Color or Default Emerald
     if (customColor) {
        root.style.setProperty('--theme-primary', customColor);
     } else {
@@ -67,17 +60,25 @@ export default function App() {
     localStorage.setItem('ios_glass_opacity', String(glassOpacity));
   }, [glassBlur, glassOpacity, isLoaded]);
 
+  // Load from local storage
   useEffect(() => {
     const today = getLocalDateString(0);
     try {
         const savedPlan = localStorage.getItem(`pcbm_plan_${today}`);
         const savedLog = localStorage.getItem(`pcbm_log_${today}`);
         const savedSettings = localStorage.getItem('pcbm_settings');
-        const savedImg = localStorage.getItem('google_profile_img');
+        
+        // Load Google Profile Picture if available
+        const savedProfile = localStorage.getItem('gcal_profile');
+        if (savedProfile) {
+            const parsedProfile = JSON.parse(savedProfile);
+            if (parsedProfile && parsedProfile.picture) {
+                setProfileImg(parsedProfile.picture);
+            }
+        }
         
         if (savedPlan) setMorningPlan(JSON.parse(savedPlan));
         if (savedLog) setLoggedSessions(JSON.parse(savedLog));
-        if (savedImg) setProfileImg(savedImg);
 
         if (savedSettings) {
             const parsed = JSON.parse(savedSettings);
@@ -90,6 +91,23 @@ export default function App() {
     }
     setIsLoaded(true);
   }, []);
+
+  // Watch local profile changes to keep the picture synchronized instantly
+  useEffect(() => {
+    const checkProfilePic = () => {
+       const savedProfile = localStorage.getItem('gcal_profile');
+       if (savedProfile) {
+           try {
+               const parsed = JSON.parse(savedProfile);
+               if (parsed && parsed.picture && parsed.picture !== profileImg) {
+                   setProfileImg(parsed.picture);
+               }
+           } catch (e) {}
+       }
+    };
+    const interval = setInterval(checkProfilePic, 2000);
+    return () => clearInterval(interval);
+  }, [profileImg]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -153,19 +171,19 @@ export default function App() {
         const subjectName = getSubjectConfig(log.subject).name;
 
         if (schedule.type === 'MISSED') {
-            title = `MISSED: ${subjectName} - ${log.topic}`;
+            title = `Missed Session: ${subjectName} - ${log.topic}`;
         } else if (schedule.type === 'FOLLOW_UP') {
-            title = `Follow-up: ${subjectName} - ${log.topic}`;
+            title = `Follow-up Study: ${subjectName} - ${log.topic}`;
         } else if (schedule.type === 'WEEKLY_CONCLUSION') {
-            title = `Weekly Practice & Conclusion: ${subjectName} - ${log.topic}`;
+            title = `Weekly Summary: ${subjectName} - ${log.topic}`;
         } else if (schedule.type === 'MONTHLY_CONCLUSION') {
-            title = `Monthly Revision & Concept Mastery: ${subjectName} - ${log.topic}`;
+            title = `Monthly Review: ${subjectName} - ${log.topic}`;
         } else if (schedule.type === 'REVIISED') {
-            title = `[REVISED] (${log.revisionType || 'Standard Review'}) ${subjectName} - ${log.topic}`;
+            title = `[Revised] ${subjectName} - ${log.topic}`;
         } else if (schedule.type === 'PRACTICE') {
-            title = `[PRACTICE] ${subjectName} - ${log.topic}`;
+            title = `[Practice] ${subjectName} - ${log.topic}`;
         } else {
-            title = `STUDY: ${subjectName} - ${log.topic}`;
+            title = `Study Block: ${subjectName} - ${log.topic}`;
         }
 
         let targetUnits = '';
@@ -173,9 +191,9 @@ export default function App() {
             const vsa = log.vsaCount || 0;
             const sa = log.saCount || 0;
             const la = log.laCount || 0;
-            targetUnits = `Target Units: ${vsa + sa + la} Questions (${vsa} VSA, ${sa} SA, ${la} LA)`;
+            targetUnits = `Target Material: ${vsa + sa + la} Questions (${vsa} Short, ${sa} Medium, ${la} Long)`;
         } else {
-            targetUnits = `Target Units: p.${log.startPage || 0} to p.${log.endPage || 0}`;
+            targetUnits = `Target Range: Pages ${log.startPage || 0} to ${log.endPage || 0}`;
         }
 
         const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
@@ -186,7 +204,7 @@ export default function App() {
             },
             body: JSON.stringify({
                 summary: title,
-                description: log.isMissed ? 'Failed to log planned session node.' : `${targetUnits}\n\nFocus Score: ${getFocusScore(log)}%\nRetention Score: ${log.retentionScore || 'N/A'}/10\n\nNotes:\n${log.notes}`,
+                description: log.isMissed ? 'Session was scheduled but not completed.' : `${targetUnits}\n\nFocus Rating: ${getFocusScore(log)}%\nRetention Level: ${log.retentionScore || 'N/A'}/10\n\nStudy Notes:\n${log.notes}`,
                 start: { date: dateStr },
                 end: { date: endStr },
                 extendedProperties: {
@@ -228,11 +246,11 @@ export default function App() {
     }
 
     const token = localStorage.getItem('gcal_token');
-    const expires = localStorage.getItem('gcal_token_expires');
     
-    if (!token || !expires || Date.now() > Number(expires)) {
-        localStorage.removeItem('gcal_token');
-        alert("Google Calendar authentication expired. Please re-verify inside the Account panel.");
+    // PERMANENT AUTH FIX: We no longer kick the user out or force logout if token expires. 
+    // We keep their connection profile active, and only ask them to verify connection when they press sync.
+    if (!token) {
+        alert("Please sign in with Google inside the Settings panel to synchronize your calendar.");
         setIsSyncing(false);
         return;
     }
@@ -247,15 +265,10 @@ export default function App() {
             }
         }
         setLoggedSessions([...finalLogs]);
-        if(successCount > 0) alert(`Successfully committed ${successCount} session logs!`);
-        else alert("Data is already synchronized.");
+        if(successCount > 0) alert(`Successfully updated your calendar with ${successCount} study logs!`);
+        else alert("Everything is currently up to date.");
     } catch(err: any) {
-        if (err.message.includes('401')) {
-            localStorage.removeItem('gcal_token');
-            alert("Google Calendar token invalid. Re-authenticate inside Account panel.");
-        } else {
-            alert("Pipeline error: " + err.message);
-        }
+        alert("Could not update calendar. Your connection session might need to be refreshed inside Settings.");
     } finally {
         setIsSyncing(false);
     }
@@ -263,9 +276,9 @@ export default function App() {
 
   const getHeaderTitle = () => {
       switch(currentTab) {
-          case 'archive': return 'Archive & History';
-          case 'account': return 'System Preferences';
-          default: return 'Command Center';
+          case 'archive': return 'History Archive';
+          case 'account': return 'Settings';
+          default: return 'Daily Tracker';
       }
   };
 
@@ -302,9 +315,9 @@ export default function App() {
             >
                <div className="w-full h-full flex items-center justify-center font-bold text-sm text-zinc-200 bg-black/40">
                  {profileImg ? (
-                     <img src={profileImg} alt="Avatar" className="w-full h-full object-cover" />
+                     <img src={profileImg} alt="User Avatar" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                  ) : (
-                     userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'A'
+                     userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'U'
                  )}
                </div>
                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0a0f18] transition-colors duration-500 ${hasUnsyncedLogs ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`}></div>
@@ -328,7 +341,7 @@ export default function App() {
               <AccountView 
                 userSettings={userSettings} 
                 setUserSettings={setUserSettings}
-                activeWallpaper={''} // Deprecated manually since we extract it via canvas now
+                activeWallpaper={''}
                 setActiveWallpaper={() => {}}
                 glassBlur={glassBlur}
                 setGlassBlur={setGlassBlur}
@@ -344,11 +357,11 @@ export default function App() {
               <button 
                 onClick={handleCloseDay} 
                 disabled={isSyncing}
-                className={`text-primary font-bold hover:underline font-headline text-sm tracking-wide transition-all ${isSyncing ? 'opacity-50 cursor-wait' : 'cursor-pointer active:opacity-70'}`}>
-                 {isSyncing ? 'Synchronizing Operations...' : 'Close Tactical Deployment & Sync'}
+                className={`text-primary font-bold hover:underline text-sm tracking-wide transition-all ${isSyncing ? 'opacity-50 cursor-wait' : 'cursor-pointer active:opacity-70'}`}>
+                 {isSyncing ? 'Syncing data...' : 'Save Logs & Sync to Calendar'}
               </button>
               <p className="text-error/90 font-medium text-[11px] px-6 text-center max-w-xl bg-error/5 border border-error/10 py-1.5 rounded-xl">
-                Accountability Warning: Unlogged items score 0% and commit permanently as MISSED.
+                Note: Planned tasks left incomplete at the end of the day will be recorded as missed.
               </p>
             </footer>
         )}
