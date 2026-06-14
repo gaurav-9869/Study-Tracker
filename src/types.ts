@@ -64,7 +64,8 @@ export interface AnalysisInsights {
   lastUpdated: string;
 }
 
-export function getSubjectConfig(sub: SubjectKey): SubjectConfig {
+// 100% Fail-Safe Subject Configuration Engine
+export function getSubjectConfig(sub: string | undefined): SubjectConfig {
   const mapping: Record<SubjectKey, SubjectConfig> = {
     bio: {
       name: 'Biology',
@@ -95,7 +96,21 @@ export function getSubjectConfig(sub: SubjectKey): SubjectConfig {
       border: 'border-pink-500/30'
     }
   };
-  return mapping[sub];
+
+  // If the browser memory passes a corrupted, missing, or undefined subject,
+  // we return a safe generic styling object instead of undefined. 
+  // This instantly stops the "reading 'name' of undefined" React crash.
+  if (!sub || !(sub in mapping)) {
+    return {
+      name: 'General Study',
+      color: '#64748b',
+      bg: 'bg-slate-500/20',
+      text: 'text-slate-400',
+      border: 'border-slate-500/30'
+    };
+  }
+
+  return mapping[sub as SubjectKey];
 }
 
 export function getLocalDateString(offsetDays = 0): string {
