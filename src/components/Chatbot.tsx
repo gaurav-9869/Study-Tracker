@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PlanItem, LogItem } from '../types';
-import { nanoid } from 'nanoid'; // Added missing import to fix compilation crash
+import { PlanItem, LogItem, getSubjectConfig } from '../types';
+import { nanoid } from 'nanoid'; // Goal #12: Added missing import to fix unhandled reference crash!
 
 interface ChatbotProps {
   morningPlan: PlanItem[];
@@ -17,7 +17,7 @@ interface Message {
 export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, setLoggedSessions }: ChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { sender: 'assistant', text: 'Hi! I can help you quickly adjust your study plans or organize your logs. Just type or paste your notes here.' }
+    { sender: 'assistant', text: "Hi! I can help you adjust your tracker plans or summarize your history logs. Type or paste your study notes here." }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -43,7 +43,7 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
 
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
-      alert("Please add your Gemini API Key in the Settings tab first.");
+      alert("Please add your Gemini API Key inside your Account profile settings first.");
       return;
     }
 
@@ -54,14 +54,14 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
 
     try {
       const contextPrompt = `
-        You are Axion AI, a supportive, direct personal learning strategist. Talk naturally like a helpful classmate—never use complex technical jargon or rigid "AI phrases."
+        You are a supportive, direct personal study assistant. Talk naturally like a helpful classmate—never use complex technical jargon or rigid "AI phrases".
         
         Current context status:
         - Planned items: ${JSON.stringify(morningPlan)}
         - Completed session records: ${JSON.stringify(loggedSessions)}
 
         Capabilities:
-        You can help the user organize their day or log metrics. If they describe a task to add or log, reply normally, but you MUST also add a raw JSON block at the very end of your response so the app can update the form values automatically.
+        You can help organize timelines or log metrics. If the user describes a task to add or log, reply normally, but you MUST also add a raw JSON block at the very end of your response so the app can update the form values automatically.
 
         JSON commands options (only include if requested by user text):
         To add a plan: :::{"command": "add_plan", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "mins": number, "units": number}:::
@@ -79,18 +79,18 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
         ]
       };
 
-      // Updated endpoint to secure stable production handshakes
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reqBody)
       });
 
-      if (!res.ok) throw new Error(`Network response error: ${res.status}`);
+      if (!res.ok) throw new Error(`Status: ${res.status}`);
 
       const data = await res.json();
-      let assistantText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't process that request. Let's try again.";
+      let assistantText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Let's try rephrasing that request.";
 
+      // Text parsing gate
       const jsonRegex = /:::(.*?):::/s;
       const match = assistantText.match(jsonRegex);
 
@@ -102,84 +102,76 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
              const newPlan: PlanItem = {
                  id: nanoid(),
                  subject: commandData.subject || 'bio',
-                 topic: commandData.topic || 'Untitled Topic',
+                 topic: commandData.topic || 'Untitled Entry',
                  sessionType: 'Study',
-                 targetMins: commandData.mins || 45,
+                 targetUnits: commandData.units || 0,
+                 targetMins: commandData.mins || 0,
                  status: 'pending'
              };
              setMorningPlan(prev => [...prev, newPlan]);
           }
-
           assistantText = assistantText.replace(jsonRegex, '').trim();
         } catch (jsonErr) {
-          console.error("Pipeline text extraction bypass triggered", jsonErr);
+          console.error("JSON bypass handled", jsonErr);
         }
       }
 
       setMessages(prev => [...prev, { sender: 'assistant', text: assistantText }]);
     } catch (err) {
-      setMessages(prev => [...prev, { sender: 'assistant', text: "The network connection dropped. Please double-check your key or try rephrasing your message." }]);
+      setMessages(prev => [...prev, { sender: 'assistant', text: "Connection anomaly encountered. Please check your API key or rephrase your input sentence." }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const glassStyle = {
-    backdropFilter: 'blur(var(--glass-blur, 24px))',
-    WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
-    backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))'
-  };
-
   return (
     <>
-      {/* Floating Chat Trigger Bubble Button */}
-      {!isOpen && (
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer z-[80] border border-white/10"
-        >
-          <span className="material-symbols-outlined text-[24px]">psychology</span>
-        </button>
-      )}
+      {/* Goal #12: Primary circle matches your dynamic wallpaper extracted tone accent dynamically */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer z-50"
+        style={{ backgroundColor: 'var(--theme-primary, #10B981)' }}
+      >
+        <span className="material-symbols-outlined text-[24px]">{isOpen ? 'close' : 'chat_bubble'}</span>
+      </button>
 
-      {/* Slide-out Glass Chat Drawer Panel */}
+      {/* Goal #7 & #8: Tint-free neutral glass modal panel container */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[500px] flex flex-col overflow-hidden z-[80] rounded-2xl border border-white/[0.06] shadow-2xl animate-ios-fade-in" style={glassStyle}>
+        <div className="fixed bottom-24 right-6 w-[calc(100vw-2rem)] sm:w-[380px] h-[480px] bg-black/40 backdrop-blur-md border border-white/10 flex flex-col overflow-hidden z-50 rounded-[28px] shadow-2xl">
           
-          {/* Header Panel Bar */}
-          <div className="px-4 py-3.5 border-b border-white/5 bg-black/20 flex justify-between items-center">
-            <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest">
-              <span className="material-symbols-outlined text-[16px]">psychology</span>
-              Axion Assistant
-            </div>
-            <button onClick={() => setIsOpen(false)} className="text-zinc-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center">
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
+          {/* Goal #13: Pruned away redundant labels. Clean header alignment */}
+          <div className="p-4 border-b border-white/10 bg-black/20 flex items-center gap-2.5">
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--theme-primary, #10B981)' }}></span>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Assistant Node</h3>
           </div>
 
           {/* Message Stream */}
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-black/10">
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5">
             {messages.map((msg, idx) => (
               <div 
                 key={idx} 
-                className={`max-w-[85%] p-3 rounded-2xl text-xs font-medium leading-relaxed ${
+                className={`max-w-[82%] p-3 rounded-2xl text-sm leading-relaxed ${
                   msg.sender === 'user' 
-                    ? 'bg-primary/20 text-primary ml-auto rounded-tr-none border border-primary/20' 
-                    : 'bg-white/5 text-zinc-300 mr-auto rounded-tl-none border border-white/[0.04]'
+                    ? 'text-white ml-auto rounded-tr-none shadow-md' 
+                    : 'bg-black/20 text-zinc-200 mr-auto rounded-tl-none border border-white/5'
                 }`}
+                style={{ backgroundColor: msg.sender === 'user' ? 'var(--theme-primary, #10B981)' : undefined }}
               >
                 {msg.text}
               </div>
             ))}
             {isLoading && (
-              <div className="bg-white/5 text-zinc-500 mr-auto rounded-2xl rounded-tl-none px-4 py-2.5 text-xs font-medium animate-pulse border border-white/[0.04]">
-                Thinking...
+              <div className="bg-black/20 text-zinc-500 mr-auto rounded-2xl rounded-tl-none border border-white/5 p-3 flex items-center gap-1.5">
+                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Smart Expanding Input Tray */}
-          <div className="p-3 bg-black/20 border-t border-white/5 flex items-end gap-2">
+          {/* Input Area */}
+          <div className="p-3 border-t border-white/10 bg-black/20 flex items-end gap-2">
             <textarea
               ref={textareaRef}
               rows={1}
@@ -191,15 +183,16 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
                   handleSendMessage();
                 }
               }}
-              placeholder="Ask a question or adjust your dashboard..."
-              className="flex-1 bg-black/20 border border-white/[0.06] text-white text-xs px-4 py-3 rounded-xl outline-none focus:border-primary/40 placeholder:text-zinc-600 font-medium resize-none max-h-[140px] leading-normal"
+              placeholder="Message..."
+              className="flex-1 bg-black/40 border border-white/10 focus:border-white/20 rounded-xl px-3.5 py-2.5 text-sm outline-none text-white transition-colors resize-none font-medium max-h-[120px] leading-normal"
             />
             <button 
               onClick={handleSendMessage}
               disabled={!input.trim() || isLoading}
-              className="p-2.5 bg-primary disabled:opacity-40 text-white rounded-xl shadow-md cursor-pointer flex items-center justify-center shrink-0"
+              className="p-2.5 text-white rounded-xl shadow-md disabled:opacity-30 transition-all cursor-pointer flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--theme-primary, #10B981)' }}
             >
-              <span className="material-symbols-outlined text-[18px]">send</span>
+              <span className="material-symbols-outlined text-[16px]">send</span>
             </button>
           </div>
 
