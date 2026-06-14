@@ -339,7 +339,9 @@ export default function App() {
       }
   };
 
-  
+  // =========================================================================
+  // REPLACE THE ENTIRE RETURN BLOCK AT THE BOTTOM OF YOUR src/App.tsx WITH This:
+  // =========================================================================
   return (
     <div className="flex min-h-screen max-w-full overflow-x-hidden relative text-zinc-100 bg-[#060a12]">
       
