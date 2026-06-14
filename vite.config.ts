@@ -23,3 +23,11 @@ export default defineConfig(({mode}) => {
     },
   };
 });
+import { defineConfig } from 'vite';
+import react from '@vitejs/react-plugin'; // or your standard react plugin import
+
+export default defineConfig({
+  // Add this line right here! Replace 'your-repository-name' with your actual GitHub repo folder name
+  base: '/your-repository-name/', 
+  plugins: [react()],
+});
