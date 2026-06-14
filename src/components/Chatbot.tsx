@@ -53,42 +53,45 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
     setIsLoading(true);
 
     // =========================================================================
-    // REPLACE THE ENTIRE try { ... } BLOCK INSIDE handleSendMessage WITH THIS:
+    // REPLACE ONLY THE try BLOCK INSIDE handleSendMessage WITH THIS CLAMPED CODE:
     // =========================================================================
     try {
-      const contextPrompt = `You are a supportive, direct personal study assistant. Talk naturally like a classmate—never use complex technical jargon or rigid "AI phrases".
-      
-Current context status:
-- Planned items: ${JSON.stringify(morningPlan || [])}
-- Completed session records: ${JSON.stringify(loggedSessions || [])}
+      // Step 1: Escape special string tokens safely to prevent text payload fragmentation
+      const safePlanText = JSON.stringify(morningPlan || []).replace(/[\/\\]/g, '');
+      const safeLogText = JSON.stringify(loggedSessions || []).replace(/[\/\\]/g, '');
+      const safeUserText = userText.replace(/["'\\]/g, ' ').replace(/[\r\n]/g, ' ');
 
-Capabilities:
-You can help organize timelines or log metrics. If the user describes a task to add or log, reply normally, but you MUST also add a raw JSON block at the very end of your response so the app can update the form values automatically.
-
-JSON commands options:
+      // Step 2: Formulate a streamlined prompt context structure
+      const operationalPrompt = `You are a supportive, direct study assistant classmates style. Avoid robotic jargon.
+Current items: Plans: ${safePlanText} | Records: ${safeLogText}
+If user requests updates, append standard commands:
 To add a plan: :::{"command": "add_plan", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "mins": number, "units": number}:::
 To update a log: :::{"command": "add_log", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "activeMins": number, "distractionMins": number, "startPage": number, "endPage": number}:::
 
-Keep responses conversational, concise, and focused.`;
+User input message: "${safeUserText}"`;
 
-      // Cleaned and compressed JSON escaping prevents payload formatting crashes
-      const cleanUserText = userText.replace(/[\"\\]/g, '\\$&').replace(/\n/g, ' ');
-
+      // Step 3: Standardize the exact request packet layout structure
       const reqBody = {
         contents: [
           {
-            parts: [{ text: `${contextPrompt}\n\nUser request: "${cleanUserText}"` }]
+            parts: [
+              { text: operationalPrompt }
+            ]
           }
         ]
       };
 
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(reqBody)
       });
 
-      if (!res.ok) throw new Error(`Network response error: ${res.status}`);
+      if (!res.ok) {
+        throw new Error(`API Connection Failed: ${res.status}`);
+      }
 
       const data = await res.json();
       let assistantText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Let's try rephrasing that request.";
@@ -121,10 +124,8 @@ Keep responses conversational, concise, and focused.`;
 
       setMessages(prev => [...prev, { sender: 'assistant', text: assistantText }]);
     } catch (err) {
-      console.error(err);
+      console.error("Gemini Handshake Failure:", err);
       setMessages(prev => [...prev, { sender: 'assistant', text: "Connection anomaly encountered. Please check your API key or rephrase your input sentence." }]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
