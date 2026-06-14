@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { PlanItem, LogItem, UserSettings, getLocalDateString, getFocusScore, getSubjectConfig } from './types';
 import CommandView from './components/CommandView';
 import ArchiveView from './components/ArchiveView';
 import AccountView from './components/AccountView';
-import SettingsView from './components/SettingsView';
 import AnalysisView from './components/AnalysisView';
 import Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
@@ -42,10 +41,13 @@ export default function App() {
     const root = document.documentElement;
     if (!root) return;
     
-    const bgUrl = customUrl || '';
-    setWallpaperStyle(bgUrl);
+    if (customUrl) {
+       setWallpaperStyle(customUrl);
+       root.style.setProperty('--wallpaper-url', `url(${customUrl})`);
+    } else {
+       root.style.setProperty('--wallpaper-url', 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)');
+    }
     
-    root.style.setProperty('--wallpaper-url', customUrl ? `url(${customUrl})` : 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)');
     root.style.setProperty('--theme-primary', customColor || '#10B981');
     root.style.setProperty('--glass-blur', `${savedBlur ? Number(savedBlur) : 24}px`);
     root.style.setProperty('--glass-opacity', savedOpacity ? String(savedOpacity) : '0.45');
@@ -105,6 +107,7 @@ export default function App() {
     localStorage.setItem('pcbm_settings', JSON.stringify(userSettings));
   }, [morningPlan, loggedSessions, userSettings, isLoaded]);
 
+  // Consistent spelling formatting applied globally
   const getHeaderTitle = () => {
       switch(currentTab) {
           case 'archive': return 'Archive';
@@ -117,10 +120,9 @@ export default function App() {
   if (!isLoaded) return null;
 
   return (
-    // Fixed container rules prevent zoomed layout blocks on tablet dimensions
     <div className="flex min-h-screen max-w-full overflow-x-hidden relative text-zinc-100 bg-[#060a12]">
       
-      {/* Absolute Wallpaper Canvas Backing fixed directly to the screen view */}
+      {/* Structural wallpaper connector fixes rendering lag */}
       <div 
         className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-500" 
         style={{ 
@@ -137,7 +139,6 @@ export default function App() {
         userSettings={userSettings}
       />
 
-      {/* Main Container Deck locked safely to responsive margins */}
       <div className="flex-1 flex flex-col relative z-10 min-w-0 md:ml-64 transition-all duration-300">
         
         <header className="bg-black/20 backdrop-blur-md border-b border-white/5 flex justify-between items-center px-6 py-4 sticky top-0 z-50">
@@ -151,6 +152,27 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight text-white animate-fade-in" key={currentTab}>
                 {getHeaderTitle()}
             </h1>
+          </div>
+
+          {/* User Profile Ring with the built-in Settings Gear Indicator overlay */}
+          <div className="flex items-center gap-4">
+            <div 
+              className="w-10 h-10 rounded-full border border-white/10 relative flex items-center justify-center cursor-pointer group hover:border-white/30 transition-all bg-black/40" 
+              onClick={() => setCurrentTab('account')}
+            >
+               <div className="w-full h-full flex items-center justify-center font-bold text-sm text-zinc-200 overflow-hidden rounded-full">
+                 {profileImg ? (
+                     <img src={profileImg} alt="User Avatar" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                 ) : (
+                     userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'U'
+                 )}
+               </div>
+               
+               {/* Aesthetic floating micro gear matches target profile alignment requirements */}
+               <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-zinc-900 border border-white/20 flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors shadow-md z-10">
+                 <span className="material-symbols-outlined text-[11px]">settings</span>
+               </div>
+            </div>
           </div>
         </header>
 
@@ -167,8 +189,6 @@ export default function App() {
             )}
             {currentTab === 'archive' && <ArchiveView />}
             {currentTab === 'analysis' && <AnalysisView loggedSessions={loggedSessions} />}
-            
-            {/* Account View handles user data, Google profile icons, sliders, and color extraction */}
             {currentTab === 'account' && (
               <AccountView 
                 userSettings={userSettings} 
