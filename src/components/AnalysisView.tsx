@@ -1,136 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { LogItem, getFocusScore, getSubjectConfig, SubjectKey } from '../types';
+import React from 'react';
+import { LogItem, getSubjectConfig } from '../types';
 
 interface AnalysisViewProps {
   loggedSessions: LogItem[];
 }
 
 export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
-  const [insights, setInsights] = useState({
-    frictionSpotlight: 'Click "Run Cognitive Analysis" to evaluate historical friction trends.',
-    trendCalibration: 'Awaiting log matrix telemetry ingestion...',
-    retentionAlerts: 'Awaiting historical score calibration checks...'
-  });
-  const [isRunningAnalysis, setIsRunningAnalysis] = useState(false);
+  const subjectMinutes: Record<string, number> = { bio: 0, phys: 0, chem: 0, math: 0 };
+  let totalMinutes = 0;
+  let totalSessions = 0;
+  let exerciseSessions = 0;
 
-  // Type-Safe explicit subject accumulator record matching your types system
-  const subjectDistribution: Record<SubjectKey, number> = { bio: 0, phys: 0, chem: 0, math: 0 };
-  
   loggedSessions.forEach(log => {
-    const sub = log.subject;
-    if (sub === 'bio' || sub === 'phys' || sub === 'chem' || sub === 'math') {
-      subjectDistribution[sub] += log.activeMins;
+    if (!log || log.isMissed) return;
+    totalSessions++;
+    if (log.sessionType === 'Exercise') exerciseSessions++;
+    
+    if (log.subject && log.activeMins && log.subject in subjectMinutes) {
+      subjectMinutes[log.subject] += log.activeMins;
+      totalMinutes += log.activeMins;
     }
   });
-  
-  const totalActiveMins = Object.values(subjectDistribution).reduce((a, b) => a + b, 0) || 1;
 
-  // Distraction Profiler Calculations
-  let totalStudy = 0, totalDistract = 0, totalRecover = 0;
-  loggedSessions.forEach(log => {
-    totalStudy += log.activeMins;
-    totalDistract += log.distractionMins;
-    totalRecover += log.recoveryMins;
+  // Data processing calculations for SVG Pie Chart matrix
+  let currentAngle = 0;
+  const pieSlices = Object.entries(subjectMinutes).map(([key, mins]) => {
+    const config = getSubjectConfig(key);
+    const percentage = totalMinutes > 0 ? (mins / totalMinutes) * 100 : 0;
+    const angle = totalMinutes > 0 ? (mins / totalMinutes) * 360 : 0;
+    const startAngle = currentAngle;
+    currentAngle += angle;
+    return { key, mins, percentage, startAngle, angle, config };
   });
-  const totalTimeMatrix = totalStudy + totalDistract + totalRecover || 1;
-
-  // Time-Block Performance Metrics Mapping
-  const hourBuckets = { morning: 0, afternoon: 0, evening: 0, night: 0 };
-  const hourCounts = { morning: 0, afternoon: 0, evening: 0, night: 0 };
-  
-  loggedSessions.forEach(log => {
-    const score = getFocusScore(log);
-    const idNum = parseInt(log.id.replace(/\D/g, '')) || 12;
-    const estimatedHour = idNum % 24;
-
-    if (estimatedHour >= 5 && estimatedHour < 12) { hourBuckets.morning += score; hourCounts.morning++; }
-    else if (estimatedHour >= 12 && estimatedHour < 17) { hourBuckets.afternoon += score; hourCounts.afternoon++; }
-    else if (estimatedHour >= 17 && estimatedHour < 22) { hourBuckets.evening += score; hourCounts.evening++; }
-    else { hourBuckets.night += score; hourCounts.night++; }
-  });
-
-  const avgHours = {
-    morning: hourCounts.morning ? Math.round(hourBuckets.morning / hourCounts.morning) : 0,
-    afternoon: hourCounts.afternoon ? Math.round(hourBuckets.afternoon / hourCounts.afternoon) : 0,
-    evening: hourCounts.evening ? Math.round(hourBuckets.evening / hourCounts.evening) : 0,
-    night: hourCounts.night ? Math.round(hourBuckets.night / hourCounts.night) : 0,
-  };
-
-  const handleRunLLMAnalysis = async () => {
-    const apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) {
-      alert("Please add your Gemini API Key in the Settings tab first.");
-      return;
-    }
-
-    setIsRunningAnalysis(true);
-    try {
-      const structuralContextPayload = loggedSessions.map(l => ({
-        subject: l.subject,
-        topic: l.topic,
-        type: l.sessionType,
-        focus: getFocusScore(l),
-        retention: l.retentionScore || 5,
-        friction: l.frictionAnalysis || 'None'
-      })).slice(-30);
-
-      const reqBody = {
-        contents: [{
-          parts: [{
-            text: `Analyze this study log array history data: ${JSON.stringify(structuralContextPayload)}. Identify patterns, recurring topics, and obstacles. Output format MUST be raw JSON format matching this shape exactly: { "frictionSpotlight": "string brief paragraph summary", "trendCalibration": "string brief paragraph summary", "retentionAlerts": "string brief paragraph summary" }`
-          }]
-        }]
-      };
-
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reqBody)
-      });
-
-      const data = await res.json();
-      const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      const cleanJson = JSON.parse(textResponse.replace(/```json|```/g, '').trim());
-
-      setInsights({
-        frictionSpotlight: cleanJson.frictionSpotlight || 'No clear structural bottlenecks discovered.',
-        trendCalibration: cleanJson.trendCalibration || 'Focus levels are tracking normally.',
-        retentionAlerts: cleanJson.retentionAlerts || 'No immediate repeat retention loops flagged.'
-      });
-    } catch (e) {
-      alert("Cognitive analysis frame dropped. Verify your key structure or try re-running.");
-    } finally {
-      setIsRunningAnalysis(false);
-    }
-  };
-
-  const glassStyle = {
-    backdropFilter: 'blur(var(--glass-blur, 24px))',
-    WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
-    backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))'
-  };
 
   return (
-    <div className="flex flex-col gap-8 w-full animate-ios-fade-in text-zinc-100 transition-all duration-500">
+    <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto text-zinc-100 animate-fade-in">
       
-      {/* Visual Chart Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Master Analytics Grid Deck */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Graph 1: Distribution */}
-        <div className="ios-glass-panel p-5 flex flex-col gap-4" style={glassStyle}>
-          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-white/5 pb-2">Subject Distribution</h3>
-          <div className="flex flex-col gap-3.5 justify-center h-full">
-            {(['bio', 'phys', 'chem', 'math'] as SubjectKey[]).map(sub => {
-              const config = getSubjectConfig(sub);
-              const percentage = Math.round((subjectDistribution[sub] / totalActiveMins) * 100);
+        {/* CHART A: Premium SVG Syllabus Distribution Pie Chart */}
+        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 shadow-2xl flex flex-col gap-6">
+          <div>
+            <h4 className="text-base font-bold text-white tracking-tight">Time Share Distribution</h4>
+            <p className="text-xs text-zinc-400 mt-0.5">Stream category breakdown ratios</p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-around gap-6 py-4">
+            <div className="relative w-44 h-44 shrink-0">
+              {totalMinutes > 0 ? (
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 32 32">
+                  {pieSlices.map((slice, idx) => {
+                    // Cumulative dash calculating circle strokes
+                    const accumulatedPercent = pieSlices.slice(0, idx).reduce((sum, p) => sum + p.percentage, 0);
+                    return (
+                      <circle
+                        key={slice.key}
+                        cx="16" cy="16" r="14"
+                        fill="transparent"
+                        stroke={slice.config.color}
+                        strokeWidth="4"
+                        strokeDasharray={`${slice.percentage} 100`}
+                        strokeDashoffset={-accumulatedPercent}
+                        className="transition-all duration-700 hover:stroke-[5] cursor-pointer"
+                      />
+                    );
+                  })}
+                </svg>
+              ) : (
+                <div className="w-full h-full rounded-full border border-dashed border-white/10 flex items-center justify-center text-xs text-zinc-500">No logs saved</div>
+              )}
+              <div className="absolute inset-7 bg-[#0b0f19] rounded-full border border-white/5 flex flex-col items-center justify-center text-center">
+                <span className="text-xs text-zinc-400 uppercase font-bold tracking-wider">Total</span>
+                <span className="text-base font-black text-white mt-0.5">{totalMinutes}m</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 w-full sm:w-auto">
+              {pieSlices.map(slice => (
+                <div key={slice.key} className="flex items-center gap-3 text-xs bg-black/20 px-3 py-2 rounded-xl border border-white/5">
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: slice.config.color }} />
+                  <span className="font-semibold text-zinc-300 capitalize min-w-[70px]">{slice.config.name}:</span>
+                  <span className="font-mono font-bold text-white ml-auto">{Math.round(slice.percentage)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* CHART B: Premium Horizontal Metrics Allocation Bar Graph */}
+        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 shadow-2xl flex flex-col gap-6">
+          <div>
+            <h4 className="text-base font-bold text-white tracking-tight">Focus Symmetrical Balance</h4>
+            <p className="text-xs text-zinc-400 mt-0.5">Tracked hours relative progression marks</p>
+          </div>
+
+          <div className="flex flex-col gap-5 justify-center flex-1 py-2">
+            {pieSlices.map(slice => {
+              const maxMinutes = Math.max(...Object.values(subjectMinutes), 1);
+              const progressWidth = Math.round((slice.mins / maxMinutes) * 100);
               return (
-                <div key={sub} className="flex flex-col gap-1 w-full">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className={config.text}>{config.name}</span>
-                    <span className="font-mono text-zinc-400">{percentage}%</span>
+                <div key={slice.key} className="flex flex-col gap-1.5 w-full">
+                  <div className="flex justify-between items-center text-xs px-1">
+                    <span className="font-bold text-zinc-300 capitalize">{slice.config.name}</span>
+                    <span className="font-mono text-zinc-500">{slice.mins} mins spend</span>
                   </div>
-                  <div className="w-full bg-black/30 h-2 border border-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-current rounded-full transition-all duration-1000" style={{ width: `${percentage}%`, color: config.color }} />
+                  <div className="w-full h-3.5 bg-black/40 rounded-full border border-white/5 overflow-hidden p-0.5">
+                    <div 
+                      className="h-full rounded-full transition-all duration-1000 ease-out"
+                      style={{ width: `${progressWidth || 3}%`, backgroundColor: slice.config.color }}
+                    />
                   </div>
                 </div>
               );
@@ -138,79 +117,46 @@ export default function AnalysisView({ loggedSessions }: AnalysisViewProps) {
           </div>
         </div>
 
-        {/* Graph 2: Ratios */}
-        <div className="ios-glass-panel p-5 flex flex-col gap-4" style={glassStyle}>
-          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-white/5 pb-2">Attention Ratio Profile</h3>
-          <div className="flex flex-col justify-center h-full gap-2 text-xs font-medium w-full">
-            <div className="flex items-center justify-between">
-              <span className="text-primary flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" /> Active Study</span>
-              <span className="font-mono text-zinc-400">{Math.round((totalStudy / totalTimeMatrix) * 100)}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-error flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-error" /> Distraction</span>
-              <span className="font-mono text-zinc-400">{Math.round((totalDistract / totalTimeMatrix) * 100)}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sky-400 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-400" /> Recovery Break</span>
-              <span className="font-mono text-zinc-400">{Math.round((totalRecover / totalTimeMatrix) * 100)}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Graph 3: Hours Peak */}
-        <div className="ios-glass-panel p-5 flex flex-col gap-4" style={glassStyle}>
-          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-white/5 pb-2">Peak Velocity Hours</h3>
-          <div className="grid grid-cols-4 gap-2 items-end h-32 pt-4">
-            {Object.entries(avgHours).map(([block, val]) => (
-              <div key={block} className="flex flex-col items-center gap-2 h-full justify-end">
-                <div className="w-full bg-primary/20 border border-primary/30 rounded-t-lg transition-all duration-1000 relative flex items-end justify-center" style={{ height: `${Math.max(val, 15)}%` }}>
-                  <span className="absolute -top-6 text-[10px] font-mono font-bold text-primary">{val}%</span>
-                </div>
-                <span className="text-[9px] uppercase tracking-wider font-bold text-zinc-500 truncate max-w-full">{block}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
       </div>
 
-      {/* Gemini Strategy Insights Pane */}
-      <div className="ios-glass-panel p-6 flex flex-col gap-6 w-full" style={glassStyle}>
-        <div className="flex justify-between items-center border-b border-white/5 pb-4">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-primary text-[22px]">psychology</span>
-            <h3 className="text-base font-bold text-white tracking-tight">Gemini Strategy Diagnostics</h3>
-          </div>
-          <button 
-            onClick={handleRunLLMAnalysis} 
-            disabled={isRunningAnalysis || loggedSessions.length === 0}
-            className="px-5 py-2.5 bg-primary hover:bg-emerald-600 disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[16px]">autorenew</span>
-            {isRunningAnalysis ? 'Analyzing Archive...' : 'Run Cognitive Analysis'}
-          </button>
+      {/* CHART C: Highly Creative Habit Overlap Venn Diagram */}
+      <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 shadow-2xl flex flex-col gap-6">
+        <div>
+          <h4 className="text-base font-bold text-white tracking-tight">Syllabus Convergence Core</h4>
+          <p className="text-xs text-zinc-400 mt-0.5">Creative intersection parameters of your active learning methods</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
-          <div className="bg-black/15 border border-white/[0.04] p-4 rounded-xl flex flex-col gap-2">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[15px]">gavel</span> Friction Spotlight
-            </span>
-            <p className="text-xs text-zinc-400 leading-relaxed font-medium mt-1">{insights.frictionSpotlight}</p>
+        <div className="flex flex-col md:flex-row items-center justify-around gap-8 py-6 bg-black/20 rounded-2xl border border-white/5">
+          <div className="relative w-64 h-48 shrink-0 flex items-center justify-center">
+            {/* SVG Overlapping Translucent Geometry vectors representing cross-sectional goals */}
+            <svg className="w-full h-full opacity-80" viewBox="0 0 300 200">
+              {/* Left Circle: Total Study Sessions */}
+              <circle cx="110" cy="100" r="65" fill="#10B981" fillOpacity="0.18" stroke="#10B981" strokeWidth="2" strokeDasharray="4 2" />
+              {/* Right Circle: Question Exercises */}
+              <circle cx="190" cy="100" r="65" fill="#3B82F6" fillOpacity="0.18" stroke="#3B82F6" strokeWidth="2" strokeDasharray="4 2" />
+              
+              {/* Floating Indicator Graph Connections */}
+              <text x="70" y="105" fill="#a7f3d0" fontSize="11" fontWeight="bold" textAnchor="middle">Study logs</text>
+              <text x="230" y="105" fill="#bfdbfe" fontSize="11" fontWeight="bold" textAnchor="middle">Exercise</text>
+              <text x="150" y="105" fill="#fff" fontSize="13" fontWeight="bold" textAnchor="middle">Velocity</text>
+            </svg>
           </div>
 
-          <div className="bg-black/15 border border-white/[0.04] p-4 rounded-xl flex flex-col gap-2">
-            <span className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[15px]">trending_up</span> Trend Calibration
-            </span>
-            <p className="text-xs text-zinc-400 leading-relaxed font-medium mt-1">{insights.trendCalibration}</p>
-          </div>
-
-          <div className="bg-black/15 border border-white/[0.04] p-4 rounded-xl flex flex-col gap-2">
-            <span className="text-xs font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[15px]">notification_important</span> Retention Alerts
-            </span>
-            <p className="text-xs text-zinc-400 leading-relaxed font-medium mt-1">{insights.retentionAlerts}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full px-4">
+            <div className="bg-black/30 border border-white/5 p-4 rounded-xl text-center">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 block">Total Logs</span>
+              <span className="text-2xl font-black text-white mt-1 block">{totalSessions}</span>
+            </div>
+            <div className="bg-black/30 border border-white/5 p-4 rounded-xl text-center">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 block">Practice Deck</span>
+              <span className="text-2xl font-black text-sky-400 mt-1 block">{exerciseSessions}</span>
+            </div>
+            <div className="bg-black/30 border border-white/5 p-4 rounded-xl text-center">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 block">System Affinity</span>
+              <span className="text-2xl font-black text-emerald-400 mt-1 block">
+                {totalSessions > 0 ? Math.round((exerciseSessions / totalSessions) * 100) : 0}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
