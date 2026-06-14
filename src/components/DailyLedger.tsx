@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { nanoid } from 'nanoid';
-import { SubjectKey, SessionMode, LogItem, PlanItem, UserSettings, getSubjectConfig } from '../types';
+import { SubjectKey, SessionMode, LogItem, PlanItem, UserSettings, getSubjectConfig, getFocusScore } from '../types';
 
 interface DailyLedgerProps {
   morningPlan: PlanItem[];
@@ -40,39 +40,46 @@ interface DailyLedgerProps {
 }
 
 export default function DailyLedger(props: DailyLedgerProps) {
+  const [autoFillInput, setAutoFillInput] = useState('');
+  const [isExtracting, setIsExtracting] = useState(false);
   const [frictionText, setFrictionText] = useState('');
   const [revisionDepth, setRevisionDepth] = useState('Standard Review');
+  const [isAiPopulated, setIsAiPopulated] = useState(false);
 
-  // --- REENGINEERED IMMERSIVE SCRATCHPAD LAYER ---
+  // Goal #22: Scratchpad Engine Canvas Setup
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [isEraserMode, setIsEraserMode] = useState(false);
-  const [inkColor, setInkColor] = useState('var(--theme-primary)');
   const [canvasDrawingData, setCanvasDrawingData] = useState<string | undefined>(undefined);
-  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
 
+  // Bulletproof drawing rendering loops that prevent asynchronous context clearing
   useEffect(() => {
-    if (showScratchpad && canvasRef.current) {
+    if (showScratchpad) {
+      const initCanvas = () => {
+        if (!canvasRef.current) return;
         const canvas = canvasRef.current;
-        // Make the canvas fluidly fill the client screen dimension boundaries
-        canvas.width = canvas.parentElement?.offsetWidth || window.innerWidth;
-        canvas.height = canvas.parentElement?.offsetHeight || window.innerHeight;
+        canvas.width = canvas.offsetWidth || 600;
+        canvas.height = canvas.offsetHeight || 400;
         
         const ctx = canvas.getContext('2d');
         if (ctx) {
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.lineWidth = isEraserMode ? 24 : 4;
-            ctx.strokeStyle = isEraserMode ? '#070a12' : inkColor;
+            ctx.lineWidth = isEraserMode ? 18 : 3;
+            ctx.strokeStyle = isEraserMode ? '#0a0f18' : '#10B981';
         }
+        
         if (canvasDrawingData) {
             const img = new Image();
             img.onload = () => ctx?.drawImage(img, 0, 0);
             img.src = canvasDrawingData;
         }
+      };
+      // requestAnimationFrame guarantees the element mounts completely before calculating dimensions
+      requestAnimationFrame(initCanvas);
     }
-  }, [showScratchpad, isEraserMode, inkColor, canvasDrawingData]);
+  }, [showScratchpad, isEraserMode]);
 
   const clearCanvas = () => {
       if (canvasRef.current) {
@@ -91,8 +98,8 @@ export default function DailyLedger(props: DailyLedgerProps) {
   const handleSaveLog = () => {
       if (!props.logTopic.trim()) return;
       
-      if (!frictionText.trim() || frictionText.trim().length < 10) {
-          alert("Friction Review: Please append a concise conceptual bottleneck summary (min 10 letters).");
+      if (!frictionText.trim() || frictionText.trim().length < 4) {
+          alert("Please fill out the Friction Review box briefly before saving.");
           return;
       }
 
@@ -138,172 +145,202 @@ export default function DailyLedger(props: DailyLedgerProps) {
       props.setLogLa('0');
       props.setLogRetention('5');
       setCanvasDrawingData(undefined);
+      setIsAiPopulated(false);
+  };
+
+  const handleExtractAI = async () => {
+      if (!autoFillInput.trim()) return;
+      const apiKey = localStorage.getItem('gemini_api_key');
+      if (!apiKey) {
+          alert("Please add your Gemini API Key in the Settings tab first.");
+          return;
+      }
+
+      setIsExtracting(true);
+      try {
+          const reqBody = {
+              contents: [{ parts: [{ text: `Analyze this description: "${autoFillInput}". Extract parameters into raw JSON: { "topic": "string", "activeMins": number, "distractionMins": number, "startPage": number, "endPage": number, "vsaqCount": number, "saqCount": number, "laqCount": number, "retentionScore": number, "frictionPoint": "string" }.` }] }]
+          };
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(reqBody)
+          });
+          const data = await res.json();
+          const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          const parsed = JSON.parse(textResponse.replace(/```json|```/g, '').trim());
+          
+          if (parsed.topic) props.setLogTopic(parsed.topic);
+          if (parsed.activeMins) props.setLogActive(String(parsed.activeMins));
+          if (parsed.distractionMins) props.setLogDistract(String(parsed.distractionMins));
+          if (parsed.startPage) props.setLogStartPage(String(parsed.startPage));
+          if (parsed.endPage) props.setLogEndPage(String(parsed.endPage));
+          if (parsed.vsaqCount) props.setLogVsa(String(parsed.vsaqCount));
+          if (parsed.saqCount) props.setLogSa(String(parsed.saqCount));
+          if (parsed.laqCount) props.setLogLa(String(parsed.laqCount));
+          if (parsed.retentionScore) props.setLogRetention(String(parsed.retentionScore));
+          if (parsed.frictionPoint) setFrictionText(parsed.frictionPoint);
+          
+          setIsAiPopulated(true);
+          setAutoFillInput('');
+      } catch(e) {
+          alert("Could not extract details. Please write clearly.");
+      } finally {
+          setIsExtracting(false);
+      }
   };
 
   return (
-    <section className="flex flex-col gap-6 w-full text-zinc-100 transition-all duration-500">
-        <div className="ios-glass-panel p-6 flex flex-col gap-6"
-             style={{
-               backdropFilter: 'blur(var(--glass-blur, 24px))',
-               WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
-               backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))'
-             }}>
+    <section className="flex flex-col gap-6 w-full text-zinc-100">
+        {/* Goal #7 & #8: Strict tint-free frosted panel borders */}
+        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 flex flex-col gap-6 shadow-2xl">
            
-           {/* Primary Metadata Selectors */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+           {/* Goal #5: Simplified, normal wording */}
+           <div className="flex flex-col gap-2">
+               <label className="text-xs text-zinc-400 font-bold tracking-wider uppercase">Quick Log input</label>
+               <div className="flex gap-2">
+                   <input type="text" value={autoFillInput} onChange={e => setAutoFillInput(e.target.value)} placeholder="e.g., Biology 40 mins pages 20 to 35 retention 8" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
+                   <button onClick={handleExtractAI} disabled={isExtracting || !autoFillInput.trim()} className="px-5 bg-white text-black rounded-xl text-xs font-bold transition-all hover:bg-zinc-200 cursor-pointer">{isExtracting ? 'Loading...' : 'Fill Form'}</button>
+               </div>
+           </div>
+
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                <div className="flex flex-col gap-2">
-                   <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Subject</label>
-                   <select value={props.logSubject} onChange={e => props.setLogSubject(e.target.value as SubjectKey)} className="w-full ios-glass-input p-3.5 text-sm bg-[#0a0f18]/80 border-white/[0.06] outline-none rounded-xl">
+                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Subject</label>
+                   <select value={props.logSubject} onChange={e => props.setLogSubject(e.target.value as SubjectKey)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none text-white">
                        {props.userSettings.activeSubjects.map(sub => (
-                           <option key={sub} value={sub} className="bg-[#0a0f18] text-white">{getSubjectConfig(sub).name}</option>
+                           <option key={sub} value={sub} className="bg-zinc-900">{getSubjectConfig(sub).name}</option>
                        ))}
                    </select>
                </div>
                <div className="flex flex-col gap-2">
-                   <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Type</label>
-                   <div className="grid grid-cols-3 bg-black/20 p-1 border border-white/[0.05] rounded-xl">
+                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Type</label>
+                   <div className="grid grid-cols-3 bg-black/40 border border-white/10 rounded-xl p-1.5">
                        {(['Study', 'Revise', 'Exercise'] as SessionMode[]).map(m => (
-                           <button key={m} onClick={() => props.logType !== m && props.setLogType(m)} className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${props.logType === m ? 'bg-primary text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>{m}</button>
+                           <button key={m} onClick={() => props.logType !== m && props.setLogType(m)} className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${props.logType === m ? 'bg-white/10 text-white shadow-inner' : 'text-zinc-400 hover:text-white'}`}>{m}</button>
                        ))}
                    </div>
                </div>
            </div>
 
            <div className="flex flex-col gap-2">
-               <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Chapter / Topic</label>
-               <input type="text" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder="Enter active topic vector..." className="w-full ios-glass-input p-3.5 text-sm rounded-xl border-white/[0.06] bg-black/10 focus:border-primary/40 outline-none" />
+               <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Topic / Chapter</label>
+               <input type="text" value={props.logTopic} onChange={e => props.setLogTopic(e.target.value)} placeholder="Topic details..." className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none" />
            </div>
 
            {props.logType === 'Revise' && (
-               <div className="flex flex-col gap-2 animate-ios-fade-in">
-                   <label className="text-[11px] font-bold tracking-widest uppercase text-sky-400">Revision Horizon</label>
-                   <div className="grid grid-cols-3 bg-black/20 p-1 border border-white/[0.05] rounded-xl">
+               <div className="flex flex-col gap-2">
+                   <label className="text-xs font-bold tracking-wider uppercase text-zinc-400">Revision Style</label>
+                   <div className="grid grid-cols-3 bg-black/40 border border-white/10 rounded-xl p-1.5">
                        {['Quick Recap', 'Standard Review', 'Deep Dive'].map(depth => (
-                           <button key={depth} onClick={() => setRevisionDepth(depth)} className={`py-2 text-xs rounded-lg transition-all cursor-pointer ${revisionDepth === depth ? 'bg-sky-500/20 text-sky-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}>{depth}</button>
+                           <button key={depth} onClick={() => setRevisionDepth(depth)} className={`py-2 text-xs rounded-lg transition-all cursor-pointer ${revisionDepth === depth ? 'bg-white/10 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}>{depth}</button>
                        ))}
                    </div>
                </div>
            )}
 
-           {/* Metrics Quantifiers Matrix */}
            {props.logType !== 'Exercise' ? (
                <div className="grid grid-cols-2 gap-5">
                    <div className="flex flex-col gap-2">
-                       <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Start Page</label>
-                       <input type="number" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Start Page</label>
+                       <input type="number" value={props.logStartPage} onChange={e => props.setLogStartPage(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none" />
                    </div>
                    <div className="flex flex-col gap-2">
-                       <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">End Page</label>
-                       <input type="number" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">End Page</label>
+                       <input type="number" value={props.logEndPage} onChange={e => props.setLogEndPage(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none" />
                    </div>
                </div>
            ) : (
                <div className="grid grid-cols-3 gap-3">
                    <div className="flex flex-col gap-2">
-                       <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">VSAQ</label>
-                       <input type="number" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm text-center rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Short Qs</label>
+                       <input type="number" value={props.logVsa} onChange={e => props.setLogVsa(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none text-center" />
                    </div>
                    <div className="flex flex-col gap-2">
-                       <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">SAQ</label>
-                       <input type="number" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm text-center rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Medium Qs</label>
+                       <input type="number" value={props.logSa} onChange={e => props.setLogSa(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none text-center" />
                    </div>
                    <div className="flex flex-col gap-2">
-                       <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">LAQ</label>
-                       <input type="number" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className="w-full ios-glass-input p-3.5 text-sm text-center rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+                       <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Long Qs</label>
+                       <input type="number" value={props.logLa} onChange={e => props.setLogLa(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none text-center" />
                    </div>
                </div>
            )}
 
-           {/* Time Distribution Fields */}
-           <div className="grid grid-cols-3 gap-4">
-               <div className="flex flex-col gap-1.5">
-                   <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-center">Active</label>
-                   <input type="number" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className="w-full ios-glass-input p-3 text-sm text-center font-bold text-primary rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+           <div className="grid grid-cols-3 gap-4 bg-black/20 p-3 rounded-2xl border border-white/5">
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-zinc-400 font-bold text-center">Study Mins</label>
+                   <input type="number" value={props.logActive} onChange={e => props.setLogActive(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-sm text-center font-bold text-emerald-400 outline-none" />
                </div>
-               <div className="flex flex-col gap-1.5">
-                   <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-center">Distracted</label>
-                   <input type="number" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className="w-full ios-glass-input p-3 text-sm text-center font-bold text-error rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-zinc-400 font-bold text-center">Distracted</label>
+                   <input type="number" value={props.logDistract} onChange={e => props.setLogDistract(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-sm text-center font-bold text-rose-400 outline-none" />
                </div>
-               <div className="flex flex-col gap-1.5">
-                   <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-center">Recovery</label>
-                   <input type="number" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className="w-full ios-glass-input p-3 text-sm text-center font-bold text-sky-400 rounded-xl border-white/[0.06] bg-black/10 outline-none" />
+               <div className="flex flex-col gap-1">
+                   <label className="text-[10px] uppercase text-zinc-400 font-bold text-center">Break Mins</label>
+                   <input type="number" value={props.logRecover} onChange={e => props.setLogRecover(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-sm text-center font-bold text-sky-400 outline-none" />
                </div>
            </div>
 
-           {/* Precision Retention Range Dial */}
            <div className="flex flex-col gap-2">
                <div className="flex justify-between items-center">
-                   <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Retention</label>
-                   <span className="text-xs font-mono font-bold bg-black/40 border border-white/[0.05] px-2.5 py-1 rounded-lg text-amber-400">{props.logRetention} / 10</span>
+                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Retention Score</label>
+                   <span className="text-xs font-mono font-bold bg-black/40 border border-white/10 px-2.5 py-1 rounded text-amber-400">{props.logRetention} / 10</span>
                </div>
+               {isAiPopulated && (
+                   <div className="w-full p-3 bg-black/30 border border-white/5 rounded-xl text-[12px] text-zinc-400">
+                       Auto-filled by AI extraction loop. Drag the slider to override.
+                   </div>
+               )}
                <input 
-                   type="range" min="1" max="10" step="1"
-                   value={props.logRetention}
-                   onChange={e => props.setLogRetention(e.target.value)}
+                   type="range" min="1" max="10" step="1" value={props.logRetention}
+                   onChange={e => { props.setLogRetention(e.target.value); setIsAiPopulated(false); }}
                    className="w-full accent-amber-400 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer mt-1"
                />
            </div>
 
-           {/* Friction Review & Scratchpad Entry Trigger */}
            <div className="flex flex-col gap-0 mt-2">
-               <div className="flex items-center justify-between bg-amber-500/5 p-3.5 rounded-t-2xl border border-white/[0.06] border-b-0">
-                   <label className="text-[11px] text-amber-400 font-bold tracking-wider uppercase flex items-center gap-2">
-                       <span className="material-symbols-outlined text-[16px]">gavel</span>
-                       Friction Review
+               <div className="flex items-center justify-between bg-zinc-900/60 p-4 rounded-t-2xl border border-white/10 border-b-0">
+                   <label className="text-xs text-zinc-400 font-bold tracking-wider uppercase flex items-center gap-2">
+                       <span className="material-symbols-outlined text-[16px]">warning</span> Friction Analysis
                    </label>
-                   <button type="button" onClick={() => setShowScratchpad(true)} className="flex items-center gap-1 text-[11px] bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-xl hover:bg-amber-500/20 transition-colors font-bold cursor-pointer border border-amber-500/20">
-                       <span className="material-symbols-outlined text-[15px]">draw</span>
-                       Canvas
+                   <button type="button" onClick={() => setShowScratchpad(true)} className="flex items-center gap-1.5 text-[10px] bg-white/5 text-zinc-300 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors font-bold cursor-pointer border border-white/10">
+                       <span className="material-symbols-outlined text-[14px]">draw</span> Open Scratchpad
                    </button>
                </div>
-               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="Identify and capture conceptual friction components (Minimum 10 characters)..." className="w-full bg-black/20 border border-white/[0.06] focus:border-amber-400/30 rounded-b-2xl p-4 text-sm outline-none text-white transition-colors placeholder:text-zinc-600" />
+               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="What concepts or hurdles cost you time? (Minimum 4 characters)..." className="w-full bg-black/40 border border-white/10 rounded-b-2xl p-4 text-sm outline-none text-white focus:border-white/20 transition-colors resize-none" />
            </div>
 
            <div className="flex flex-col gap-2">
-               <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Notes</label>
-               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder="Study logs annotations..." className="w-full bg-black/20 border border-white/[0.06] focus:border-primary/30 rounded-xl p-4 text-sm outline-none text-white transition-colors" />
+               <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Study Notes</label>
+               <textarea rows={2} value={props.logNotes} onChange={e => props.setLogNotes(e.target.value)} placeholder="Additional session notes..." className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm outline-none resize-none" />
            </div>
 
-           <button onClick={handleSaveLog} className="w-full py-4 mt-2 rounded-xl bg-primary text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-primary/20 transition-all duration-500 active:scale-[0.99] cursor-pointer">Save Entry Log</button>
+           <button onClick={handleSaveLog} className="w-full py-4 mt-2 rounded-xl bg-white text-black font-bold text-sm tracking-wide shadow-xl hover:bg-zinc-200 transition-all active:scale-[0.99] cursor-pointer">Save Session Log</button>
         </div>
 
-        {/* --- PREMIUM IMMERSIVE FULL-SCREEN TAKEOVER CANVAS MODAL --- */}
+        {/* Goal #22: Scratchpad Canvas Modal */}
         {showScratchpad && (
-            <div className="fixed inset-0 z-[100] flex flex-col bg-[#070a12]/95 backdrop-blur-xl transition-all duration-500 animate-ios-fade-in animate-duration-500">
-                
-                {/* Minimalist Header Container with Symbolic Controls Only */}
-                <div className="flex justify-between items-center px-6 py-4 border-b border-white/[0.06] bg-black/30">
-                    
-                    {/* Active Ink Color Dots Row Selection Layer */}
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => { setIsEraserMode(false); setInkColor('var(--theme-primary)'); }} className={`w-6 h-6 rounded-full bg-primary border-2 transition-all ${!isEraserMode && inkColor === 'var(--theme-primary)' ? 'border-white scale-110' : 'border-transparent opacity-60'}`} />
-                        <button onClick={() => { setIsEraserMode(false); setInkColor('#EF4444'); }} className={`w-6 h-6 rounded-full bg-red-500 border-2 transition-all ${!isEraserMode && inkColor === '#EF4444' ? 'border-white scale-110' : 'border-transparent opacity-60'}`} />
-                        <button onClick={() => { setIsEraserMode(false); setInkColor('#FFFFFF'); }} className={`w-6 h-6 rounded-full bg-white border-2 transition-all ${!isEraserMode && inkColor === '#FFFFFF' ? 'border-white scale-110' : 'border-transparent opacity-60'}`} />
-                        <button onClick={() => { setIsEraserMode(false); setInkColor('#F59E0B'); }} className={`w-6 h-6 rounded-full bg-amber-500 border-2 transition-all ${!isEraserMode && inkColor === '#F59E0B' ? 'border-white scale-110' : 'border-transparent opacity-60'}`} />
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md transition-opacity">
+                <div className="bg-[#0b0f19] border border-white/10 w-full max-w-4xl h-[75vh] flex flex-col overflow-hidden relative rounded-[32px] shadow-2xl">
+                    <div className="flex justify-between items-center p-5 border-b border-white/10 bg-black/20">
+                        <div className="flex items-center gap-4 text-zinc-300 font-bold text-sm uppercase tracking-wider">
+                            <span className="material-symbols-outlined">draw</span> Sketch Pad
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button 
+                               type="button" onClick={() => setIsEraserMode(!isEraserMode)} 
+                               className={`text-xs px-4 py-2.5 rounded-xl border transition-all font-bold cursor-pointer ${isEraserMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'}`}
+                            >
+                                <span className="flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[16px]">{isEraserMode ? 'edit' : 'ink_eraser'}</span>
+                                    {isEraserMode ? 'Pen Mode' : 'Eraser Mode'}
+                                </span>
+                            </button>
+                            <button type="button" onClick={clearCanvas} className="text-xs bg-white/5 px-4 py-2.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer border border-white/10 font-bold">Clear Canvas</button>
+                            <button type="button" onClick={() => { syncCanvasDataString(); setShowScratchpad(false); }} className="bg-white text-black text-xs px-5 py-2.5 rounded-xl font-bold cursor-pointer shadow-md">Save & Close</button>
+                        </div>
                     </div>
-
-                    {/* Toolbar Functional Actions Row utilizing Symbol Icons only */}
-                    <div className="flex items-center gap-4">
-                        <button 
-                           type="button" 
-                           onClick={() => setIsEraserMode(!isEraserMode)} 
-                           className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${isEraserMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-white/5 text-zinc-400 border-white/10'}`}
-                        >
-                            <span className="material-symbols-outlined text-[20px]">{isEraserMode ? 'edit' : 'ink_eraser'}</span>
-                        </button>
-                        
-                        <button type="button" onClick={clearCanvas} className="p-2.5 bg-white/5 rounded-xl text-zinc-400 hover:text-white border border-white/10 transition-all cursor-pointer flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[20px]">delete</span>
-                        </button>
-                        
-                        <button type="button" onClick={() => { syncCanvasDataString(); setShowScratchpad(false); }} className="bg-primary text-white p-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all cursor-pointer flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Infinite Canvas Drawing Grid Plane */}
-                <div className="flex-1 w-full h-full relative bg-[#070a12]">
                     <canvas 
                         ref={canvasRef} 
                         onPointerDown={(e) => {
@@ -327,7 +364,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
                         }}
                         onPointerUp={() => { isDrawing.current = false; syncCanvasDataString(); }}
                         onPointerLeave={() => { isDrawing.current = false; }}
-                        className="w-full h-full cursor-crosshair touch-none" 
+                        className="flex-1 w-full bg-black cursor-crosshair touch-none" 
                     />
                 </div>
             </div>
