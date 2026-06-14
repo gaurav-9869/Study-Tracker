@@ -3,9 +3,8 @@ import { PlanItem, LogItem, UserSettings, getLocalDateString, getFocusScore, get
 import CommandView from './components/CommandView';
 import ArchiveView from './components/ArchiveView';
 import AccountView from './components/AccountView';
-import SettingsView from './components/SettingsView'; // Newly broken out separate tab
-import AnalysisView from './components/AnalysisView'; // Advanced LLM + Charts tab
-import Sidebar from './components/Sidebar';
+import SettingsView from './components/SettingsView'; // Make sure the 'S' and 'V' match your filename perfectly
+import AnalysisView from './components/AnalysisView'; // Make sure the 'A' and 'V' match your filename perfectlyimport Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
 import { nanoid } from 'nanoid';
 
