@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  // Restoring the explicit case-sensitive repository path
+  // Binds asset generation directly to your case-sensitive repo name
   base: '/Axion/',
   plugins: [react()],
   server: {
