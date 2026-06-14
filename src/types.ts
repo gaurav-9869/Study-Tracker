@@ -1,12 +1,5 @@
-export type SubjectKey = string;
+export type SubjectKey = 'bio' | 'phys' | 'chem' | 'math';
 export type SessionMode = 'Study' | 'Revise' | 'Exercise';
-
-export interface UserSettings {
-  name: string;
-  className: string;
-  activeSubjects: string[];
-  subjectGoals: Record<string, number>;
-}
 
 export interface PlanItem {
   id: string;
@@ -14,59 +7,110 @@ export interface PlanItem {
   topic: string;
   sessionType: SessionMode;
   targetMins: number;
-  status?: 'pending' | 'completed';
+  targetUnits?: number; // pages or questions
+  status: 'pending' | 'completed';
 }
 
 export interface LogItem {
   id: string;
   planId?: string;
-  associatedPlanId?: string;
   subject: SubjectKey;
   topic: string;
   sessionType: SessionMode;
-  revisionType?: string;
+  revisionType?: string; // "Quick Recap", "Standard Review", "Deep Dive"
+  activeMins: number;
+  distractionMins: number;
+  recoveryMins: number;
+  retentionScore?: number; // 1 to 10
   startPage?: number;
   endPage?: number;
   vsaCount?: number;
   saCount?: number;
   laCount?: number;
-  activeMins: number;
-  distractionMins: number;
-  recoveryMins: number;
-  retentionScore?: number;
-  frictionAnalysis?: string;
   notes: string;
+  frictionAnalysis?: string; // Explicitly records bottleneck items
+  scratchpadImage?: string; // Captures and retains full-screen Base64 canvas drawings
   isMissed?: boolean;
   synced?: boolean;
 }
 
-const DEFAULT_SUBJECTS: Record<string, { name: string; text: string; bg: string; from: string; color: string }> = {
-  bio: { name: 'Biology', text: 'text-[#50C878]', bg: 'bg-[#50C878]', from: 'from-[#50C878]', color: '#50C878' },
-  phys: { name: 'Physics', text: 'text-[#00BFFF]', bg: 'bg-[#00BFFF]', from: 'from-[#00BFFF]', color: '#00BFFF' },
-  chem: { name: 'Chemistry', text: 'text-[#7851A9]', bg: 'bg-[#7851A9]', from: 'from-[#7851A9]', color: '#7851A9' },
-  math: { name: 'Mathematics', text: 'text-[#FF4500]', bg: 'bg-[#FF4500]', from: 'from-[#FF4500]', color: '#FF4500' },
-};
-
-export const getSubjectConfig = (key: string) => {
-    if (DEFAULT_SUBJECTS[key]) return DEFAULT_SUBJECTS[key];
-    const normalized = key.toLowerCase().trim();
-    const found = Object.values(DEFAULT_SUBJECTS).find(s => s.name.toLowerCase() === normalized);
-    if (found) return found;
-    return { name: key, text: 'text-primary', bg: 'bg-primary', from: 'from-primary', color: '#00BFFF' };
-};
-
-export function getLocalDateString(offsetDays = 0) {
-    const d = new Date();
-    d.setDate(d.getDate() + offsetDays);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+export interface UserSettings {
+  name: string;
+  className: string;
+  activeSubjects: SubjectKey[];
+  subjectGoals: Record<string, string>;
 }
 
-export const getFocusScore = (log: LogItem) => {
-    if (log.isMissed) return 0;
-    const total = log.activeMins + log.distractionMins + log.recoveryMins;
-    if (total === 0) return 0;
-    return Math.round((log.activeMins / total) * 100);
+export interface SubjectConfig {
+  name: string;
+  color: string;
+  bg: string;
+  text: string;
+  border: string;
+}
+
+// Data models for the pre-made charts and Gemini context summary processing
+export interface TimeBlockMetrics {
+  morning: number;
+  afternoon: number;
+  evening: number;
+  night: number;
+}
+
+export interface AnalysisInsights {
+  frictionSpotlight: string;
+  trendCalibration: string;
+  retentionAlerts: string;
+  lastUpdated: string;
+}
+
+export function getSubjectConfig(sub: SubjectKey): SubjectConfig {
+  const mapping: Record<SubjectKey, SubjectConfig> = {
+    bio: {
+      name: 'Biology',
+      color: '#10B981',
+      bg: 'bg-emerald-500/20',
+      text: 'text-emerald-400',
+      border: 'border-emerald-500/30'
+    },
+    phys: {
+      name: 'Physics',
+      color: '#3B82F6',
+      bg: 'bg-blue-500/20',
+      text: 'text-blue-400',
+      border: 'border-blue-500/30'
+    },
+    chem: {
+      name: 'Chemistry',
+      color: '#F59E0B',
+      bg: 'bg-amber-500/20',
+      text: 'text-amber-400',
+      border: 'border-amber-500/30'
+    },
+    math: {
+      name: 'Mathematics',
+      color: '#EC4899',
+      bg: 'bg-pink-500/20',
+      text: 'text-pink-400',
+      border: 'border-pink-500/30'
+    }
+  };
+  return mapping[sub];
+}
+
+export function getLocalDateString(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function getFocusScore(log: LogItem): number {
+  if (log.isMissed) return 0;
+  const total = log.activeMins + log.distractionMins + log.recoveryMins;
+  if (total === 0) return 0;
+  const ratio = log.activeMins / total;
+  return Math.round(ratio * 100);
 }
