@@ -12,7 +12,12 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [morningPlan, setMorningPlan] = useState<PlanItem[]>([]);
   const [loggedSessions, setLoggedSessions] = useState<LogItem[]>([]);
-  const [userSettings, setUserSettings] = useState<UserSettings>({\n      name: '',\n      className: '',\n      activeSubjects: ['bio', 'phys', 'chem', 'math'],\n      subjectGoals: {}\n  });
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+      name: '',
+      className: '',
+      activeSubjects: ['bio', 'phys', 'chem', 'math'],
+      subjectGoals: {}
+  });
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [profileImg, setProfileImg] = useState<string | null>(null);
@@ -247,8 +252,6 @@ export default function App() {
 
     const token = localStorage.getItem('gcal_token');
     
-    // PERMANENT AUTH FIX: We no longer kick the user out or force logout if token expires. 
-    // We keep their connection profile active, and only ask them to verify connection when they press sync.
     if (!token) {
         alert("Please sign in with Google inside the Settings panel to synchronize your calendar.");
         setIsSyncing(false);
@@ -357,7 +360,7 @@ export default function App() {
               <button 
                 onClick={handleCloseDay} 
                 disabled={isSyncing}
-                className={`text-primary font-bold hover:underline text-sm tracking-wide transition-all ${isSyncing ? 'opacity-50 cursor-wait' : 'cursor-pointer active:opacity-70'}`}>
+                className={`text-primary font-bold hover:underline font-headline text-sm tracking-wide transition-all ${isSyncing ? 'opacity-50 cursor-wait' : 'cursor-pointer active:opacity-70'}`}>
                  {isSyncing ? 'Syncing data...' : 'Save Logs & Sync to Calendar'}
               </button>
               <p className="text-error/90 font-medium text-[11px] px-6 text-center max-w-xl bg-error/5 border border-error/10 py-1.5 rounded-xl">
