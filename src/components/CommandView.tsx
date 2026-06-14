@@ -39,7 +39,6 @@ export default function CommandView({ morningPlan, setMorningPlan, loggedSession
     setLogActive(plan.targetMins.toString());
   };
 
-  // Metric Math Logic Array Calculations
   const totalPlanned = morningPlan.length;
   const completedPlanned = morningPlan.filter(p => p.status === 'completed').length;
   const progressPercent = totalPlanned === 0 ? 0 : Math.round((completedPlanned / totalPlanned) * 100);
@@ -50,60 +49,56 @@ export default function CommandView({ morningPlan, setMorningPlan, loggedSession
 
   const revisionDueCount = morningPlan.filter(p => p.sessionType === 'Revise' && p.status !== 'completed').length;
 
-  const glassStyle = {
-    backdropFilter: 'blur(var(--glass-blur, 24px))',
-    WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
-    backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))'
-  };
-
   return (
-    <div className="flex flex-col gap-10 w-full animate-ios-fade-in text-zinc-100 transition-all duration-500">
+    // Goal #20: Fixed staggered animations using generic transition utilities instead of heavy custom classes
+    <div className="flex flex-col gap-10 w-full transition-opacity duration-700 ease-in text-zinc-100">
       
-      {/* Header Summary Deck */}
+      {/* Overview Metric Row */}
       <div className="flex flex-col gap-6 w-full">
          <div>
+            {/* Goal #3 & #5: Simplified, clean tracking header */}
             <h2 className="text-3xl font-bold tracking-tight text-white mb-1">
-              Welcome back, {userSettings.name || 'User'}
+              Welcome back{userSettings.name ? `, ${userSettings.name}` : ''}
             </h2>
-            <p className="text-sm text-zinc-400">Current performance overview metrics.</p>
+            <p className="text-sm text-zinc-400 font-medium">Daily Tracking Overview</p>
          </div>
 
-         {/* Dashboard Cards Grid Row */}
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-2">
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
             
-            <div className="ios-glass-card-nested p-6 flex flex-col gap-2 relative overflow-hidden group" style={glassStyle}>
+            {/* Goal #8: Uniform Glass Panel Opacity (bg-black/40 with backdrop blur and white borders) */}
+            <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-3xl p-6 flex flex-col gap-2 relative overflow-hidden group shadow-xl">
                <div className="flex justify-between items-center text-zinc-400 mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Progress</span>
-                  <span className="material-symbols-outlined text-[18px] text-primary">trending_up</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Daily Progress</span>
+                  <span className="material-symbols-outlined text-[18px] text-emerald-400">trending_up</span>
                </div>
                <div className="text-4xl font-bold text-white tracking-tight">{progressPercent}%</div>
-               <div className="w-full bg-black/30 h-1.5 rounded-full mt-3 overflow-hidden border border-white/5">
-                  <div className="h-full bg-primary rounded-full transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }}></div>
+               <div className="w-full bg-black/40 h-2 rounded-full mt-3 overflow-hidden border border-white/5">
+                  {/* Dynamic primary color binds to the extracted wallpaper color */}
+                  <div className="h-full bg-[var(--theme-primary)] rounded-full transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }}></div>
                </div>
             </div>
 
-            <div className="ios-glass-card-nested p-6 flex flex-col gap-2 relative overflow-hidden group" style={glassStyle}>
+            <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-3xl p-6 flex flex-col gap-2 relative overflow-hidden group shadow-xl">
                <div className="flex justify-between items-center text-zinc-400 mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-sky-400">Revision Due</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-sky-400">Revisions Due</span>
                   <span className="material-symbols-outlined text-[18px] text-sky-400">menu_book</span>
                </div>
                <div className="text-4xl font-bold text-white tracking-tight">{revisionDueCount} <span className="text-xl text-zinc-500 font-medium">tasks</span></div>
-               <p className="text-xs text-zinc-500 mt-2 font-medium">Pending structural repetitions.</p>
+               <p className="text-xs text-zinc-400 mt-2 font-medium">Pending repetition cycles.</p>
             </div>
 
-            <div className="ios-glass-card-nested p-6 flex flex-col gap-2 relative overflow-hidden group" style={glassStyle}>
+            <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-3xl p-6 flex flex-col gap-2 relative overflow-hidden group shadow-xl">
                <div className="flex justify-between items-center text-zinc-400 mb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Focus Score</span>
                   <span className="material-symbols-outlined text-[18px] text-amber-400">radar</span>
                </div>
                <div className="text-4xl font-bold text-white tracking-tight">{averageFocus}%</div>
-               <p className="text-xs text-zinc-500 mt-2 font-medium">Attention efficiency index.</p>
+               <p className="text-xs text-zinc-400 mt-2 font-medium">Activity ratio efficiency.</p>
             </div>
-
          </div>
       </div>
 
-      {/* Main Core Form Content Splits */}
+      {/* Two-Column Form Split Layout with strictly enforced tablet breakpoints (xl:grid-cols-2) to prevent zooming */}
       <div className="w-full grid grid-cols-1 xl:grid-cols-2 gap-10 items-start">
         <BatchPlanner 
           morningPlan={morningPlan} 
@@ -151,9 +146,9 @@ export default function CommandView({ morningPlan, setMorningPlan, loggedSession
         />
       </div>
       
-      {/* Dynamic Activity Visual Chart Tray */}
-      <div className="w-full mt-4 p-6 bg-opacity-30 rounded-2xl border border-white/[0.06]" style={glassStyle}>
-         <ConceptVelocity loggedSessions={loggedSessions} />
+      {/* Chart Placement Tray - Wrapped in uniform frosted glass */}
+      <div className="w-full mt-4 bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 sm:p-10 shadow-2xl">
+        <ConceptVelocity loggedSessions={loggedSessions} />
       </div>
 
     </div>
