@@ -3,14 +3,22 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// Safety net catches startup runtime crashes and prints them as a mobile alert
-try {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-} catch (error: any) {
-  // This will trigger an Android browser popup showing the exact broken component or variable!
-  alert("Axion Startup Crash Log: " + error?.message + "\nStack: " + error?.stack);
+// Absolute fail-safe container detection targeting your browser DOM directly
+const container = document.getElementById('root');
+
+if (!container) {
+  // If the browser can't bind the root layout element, it will alert you immediately
+  alert("Axion System Engine Block: The browser could not discover the HTML target root layout.");
+} else {
+  try {
+    const root = ReactDOM.createRoot(container);
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+  } catch (err: any) {
+    // Catches any internal component variable errors inside your 11 files
+    alert("Axion Application Startup Crash:\n" + err?.message + "\n\nStack Trace:\n" + err?.stack);
+  }
 }
