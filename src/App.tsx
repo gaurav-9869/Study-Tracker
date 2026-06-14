@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { PlanItem, LogItem, UserSettings, getLocalDateString, getFocusScore, getSubjectConfig } from './types';
 import CommandView from './components/CommandView';
 import ArchiveView from './components/ArchiveView';
 import AccountView from './components/AccountView';
 import SettingsView from './components/SettingsView';
-import BatchPlanner from './components/BatchPlanner';
 import AnalysisView from './components/AnalysisView';
 import Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
@@ -25,10 +24,12 @@ export default function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [profileImg, setProfileImg] = useState<string | null>(null);
 
-  // Goal #11: Dynamic Depth Controllers
+  // Core Glass Styling Depth States
   const [glassBlur, setGlassBlur] = useState(24);
   const [glassOpacity, setGlassOpacity] = useState(0.45);
+  const [wallpaperStyle, setWallpaperStyle] = useState('');
 
+  // Fixed Wallpaper Engine Loading Cycles
   useLayoutEffect(() => {
     const customUrl = localStorage.getItem('custom_wallpaper_url');
     const customColor = localStorage.getItem('custom_wallpaper_color');
@@ -40,6 +41,9 @@ export default function App() {
 
     const root = document.documentElement;
     if (!root) return;
+    
+    const bgUrl = customUrl || '';
+    setWallpaperStyle(bgUrl);
     
     root.style.setProperty('--wallpaper-url', customUrl ? `url(${customUrl})` : 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)');
     root.style.setProperty('--theme-primary', customColor || '#10B981');
@@ -89,9 +93,7 @@ export default function App() {
             const parsedProfile = JSON.parse(savedProfile);
             if (parsedProfile?.picture) setProfileImg(parsedProfile.picture);
         }
-    } catch (e) {
-        console.error("Safe load failed", e);
-    }
+    } catch (e) { console.error(e); }
     setIsLoaded(true);
   }, []);
 
@@ -103,15 +105,10 @@ export default function App() {
     localStorage.setItem('pcbm_settings', JSON.stringify(userSettings));
   }, [morningPlan, loggedSessions, userSettings, isLoaded]);
 
-  const hasUnsyncedLogs = Array.isArray(loggedSessions) && loggedSessions.some(l => l && !l.synced);
-
-  // Goal #3, #4: Simplification of Titles mapped to correct IDs
   const getHeaderTitle = () => {
       switch(currentTab) {
           case 'archive': return 'Archive';
           case 'account': return 'My Account';
-          case 'settings': return 'System Settings';
-          case 'planner': return 'Daily Planner';
           case 'analysis': return 'Analytics';
           default: return 'Tracker';
       }
@@ -120,10 +117,16 @@ export default function App() {
   if (!isLoaded) return null;
 
   return (
-    <div className="flex min-h-screen relative w-full text-zinc-100 bg-black">
+    // Fixed container rules prevent zoomed layout blocks on tablet dimensions
+    <div className="flex min-h-screen max-w-full overflow-x-hidden relative text-zinc-100 bg-[#060a12]">
       
-      {/* Background Canvas */}
-      <div className="ios-wallpaper-canvas fixed inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: 'var(--wallpaper-url)' }} />
+      {/* Absolute Wallpaper Canvas Backing fixed directly to the screen view */}
+      <div 
+        className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-500" 
+        style={{ 
+          backgroundImage: wallpaperStyle ? `url(${wallpaperStyle})` : 'radial-gradient(circle at top left, #121026 0%, #05080f 100%)' 
+        }} 
+      />
 
       <Sidebar 
         currentTab={currentTab} 
@@ -134,14 +137,15 @@ export default function App() {
         userSettings={userSettings}
       />
 
-      {/* Goal #7 & #8: Removed blue tints, utilizing strict responsive layouts (md:ml-64) to fix tablet zoom */}
-      <div className={`flex-1 flex flex-col relative z-10 transition-all duration-500 ${isSidebarOpen ? 'ml-0 md:ml-64' : 'ml-0 md:ml-64'}`}>
+      {/* Main Container Deck locked safely to responsive margins */}
+      <div className="flex-1 flex flex-col relative z-10 min-w-0 md:ml-64 transition-all duration-300">
         
-        <header className="bg-black/30 backdrop-blur-md border-b border-white/10 flex justify-between items-center px-6 py-4 sticky top-0 z-50">
+        <header className="bg-black/20 backdrop-blur-md border-b border-white/5 flex justify-between items-center px-6 py-4 sticky top-0 z-50">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="md:hidden text-zinc-300 hover:text-white transition-colors p-2 cursor-pointer">
+              className="md:hidden text-zinc-300 hover:text-white p-2 cursor-pointer transition-colors"
+            >
               <span className="material-symbols-outlined">menu</span>
             </button>
             <h1 className="text-xl font-bold tracking-tight text-white animate-fade-in" key={currentTab}>
@@ -150,7 +154,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 pb-24 flex flex-col animate-fade-in overflow-x-hidden">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 flex flex-col overflow-y-auto min-w-0">
             {currentTab === 'command' && (
               <CommandView 
                 morningPlan={morningPlan} 
@@ -158,30 +162,22 @@ export default function App() {
                 loggedSessions={loggedSessions}
                 setLoggedSessions={setLoggedSessions}
                 userSettings={userSettings}
-              />
-            )}
-            {currentTab === 'planner' && (
-              <BatchPlanner 
-                morningPlan={morningPlan} 
-                setMorningPlan={setMorningPlan} 
+                setUserSettings={setUserSettings}
               />
             )}
             {currentTab === 'archive' && <ArchiveView />}
-            {currentTab === 'analysis' && (
-              <AnalysisView loggedSessions={loggedSessions} />
-            )}
+            {currentTab === 'analysis' && <AnalysisView loggedSessions={loggedSessions} />}
+            
+            {/* Account View handles user data, Google profile icons, sliders, and color extraction */}
             {currentTab === 'account' && (
               <AccountView 
                 userSettings={userSettings} 
                 setUserSettings={setUserSettings}
-              />
-            )}
-            {currentTab === 'settings' && (
-              <SettingsView 
                 glassBlur={glassBlur}
                 setGlassBlur={setGlassBlur}
                 glassOpacity={glassOpacity}
                 setGlassOpacity={setGlassOpacity}
+                setWallpaperStyle={setWallpaperStyle}
               />
             )}
         </main>
