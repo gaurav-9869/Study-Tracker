@@ -339,6 +339,7 @@ export default function App() {
       }
   };
 
+  
   return (
     <div className="flex min-h-screen max-w-full overflow-x-hidden relative text-zinc-100 bg-[#060a12]">
       
