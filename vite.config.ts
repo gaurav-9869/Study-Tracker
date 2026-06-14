@@ -1,10 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  // Setting base to an empty string forces completely relative asset generation
-  base: '',
+  // Restoring the explicit case-sensitive repository path
+  base: '/Axion/',
   plugins: [react()],
   server: {
     port: 3000,
