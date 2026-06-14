@@ -70,10 +70,10 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
         Keep responses conversational, concise, and focused.
       `;
 
+      // Corrected payload block structural formatting prevents connection drops
       const reqBody = {
         contents: [
           {
-            role: 'user',
             parts: [{ text: `${contextPrompt}\n\nUser request: "${userText}"` }]
           }
         ]
@@ -126,7 +126,7 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
 
   return (
     <>
-      {/* Goal #12: Primary circle matches your dynamic wallpaper extracted tone accent dynamically */}
+      {/* Floating Chat Trigger Bubble */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-6 right-6 w-14 h-14 rounded-full text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer z-50"
@@ -135,69 +135,70 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
         <span className="material-symbols-outlined text-[24px]">{isOpen ? 'close' : 'chat_bubble'}</span>
       </button>
 
-      {/* Goal #7 & #8: Tint-free neutral glass modal panel container */}
-      {isOpen && (
-        <div className="fixed bottom-24 right-6 w-[calc(100vw-2rem)] sm:w-[380px] h-[480px] bg-black/40 backdrop-blur-md border border-white/10 flex flex-col overflow-hidden z-50 rounded-[28px] shadow-2xl">
-          
-          {/* Goal #13: Pruned away redundant labels. Clean header alignment */}
-          <div className="p-4 border-b border-white/10 bg-black/20 flex items-center gap-2.5">
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--theme-primary, #10B981)' }}></span>
-            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Assistant Node</h3>
-          </div>
-
-          {/* Message Stream */}
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5">
-            {messages.map((msg, idx) => (
-              <div 
-                key={idx} 
-                className={`max-w-[82%] p-3 rounded-2xl text-sm leading-relaxed ${
-                  msg.sender === 'user' 
-                    ? 'text-white ml-auto rounded-tr-none shadow-md' 
-                    : 'bg-black/20 text-zinc-200 mr-auto rounded-tl-none border border-white/5'
-                }`}
-                style={{ backgroundColor: msg.sender === 'user' ? 'var(--theme-primary, #10B981)' : undefined }}
-              >
-                {msg.text}
-              </div>
-            ))}
-            {isLoading && (
-              <div className="bg-black/20 text-zinc-500 mr-auto rounded-2xl rounded-tl-none border border-white/5 p-3 flex items-center gap-1.5">
-                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Area */}
-          <div className="p-3 border-t border-white/10 bg-black/20 flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              placeholder="Message..."
-              className="flex-1 bg-black/40 border border-white/10 focus:border-white/20 rounded-xl px-3.5 py-2.5 text-sm outline-none text-white transition-colors resize-none font-medium max-h-[120px] leading-normal"
-            />
-            <button 
-              onClick={handleSendMessage}
-              disabled={!input.trim() || isLoading}
-              className="p-2.5 text-white rounded-xl shadow-md disabled:opacity-30 transition-all cursor-pointer flex items-center justify-center shrink-0"
-              style={{ backgroundColor: 'var(--theme-primary, #10B981)' }}
-            >
-              <span className="material-symbols-outlined text-[16px]">send</span>
-            </button>
-          </div>
-
+      {/* Slide-out Glass Chat Drawer Panel with smooth animation states toggled via open conditions */}
+      <div 
+        className={`fixed bottom-24 right-6 w-[calc(100vw-2rem)] sm:w-[380px] h-[480px] bg-black/40 backdrop-blur-md border border-white/10 flex flex-col overflow-hidden z-50 rounded-[28px] shadow-2xl transition-all duration-300 cubic-bezier(0.16, 1, 0.3, 1) ${
+          isOpen ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
+        }`}
+      >
+        {/* Header Panel */}
+        <div className="p-4 border-b border-white/10 bg-black/20 flex items-center gap-2.5">
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--theme-primary, #10B981)' }}></span>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Assistant</h3>
         </div>
-      )}
+
+        {/* Message Stream */}
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5">
+          {messages.map((msg, idx) => (
+            <div 
+              key={idx} 
+              className={`max-w-[82%] p-3 rounded-2xl text-sm leading-relaxed ${
+                msg.sender === 'user' 
+                  ? 'text-white ml-auto rounded-tr-none shadow-md' 
+                  : 'bg-black/20 text-zinc-200 mr-auto rounded-tl-none border border-white/5'
+              }`}
+              style={{ backgroundColor: msg.sender === 'user' ? 'var(--theme-primary, #10B981)' : undefined }}
+            >
+              {msg.text}
+            </div>
+          ))}
+          {isLoading && (
+            <div className="bg-black/20 text-zinc-500 mr-auto rounded-2xl rounded-tl-none border border-white/5 p-3 flex items-center gap-1.5">
+               <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+               <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+               <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="p-3 border-t border-white/10 bg-black/20 flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            placeholder="Message..."
+            className="flex-1 bg-black/40 border border-white/10 focus:border-white/20 rounded-xl px-3.5 py-2.5 text-sm outline-none text-white transition-colors resize-none font-medium max-h-[120px] leading-normal"
+          />
+          <button 
+            onClick={handleSendMessage}
+            disabled={!input.trim() || isLoading}
+            className="p-2.5 text-white rounded-xl shadow-md disabled:opacity-30 transition-all cursor-pointer flex items-center justify-center shrink-0"
+            style={{ backgroundColor: 'var(--theme-primary, #10B981)' }}
+          >
+            <span className="material-symbols-outlined text-[16px]">send</span>
+          </button>
+        </div>
+
+      </div>
     </>
   );
 }
