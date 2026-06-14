@@ -4,6 +4,7 @@ import CommandView from './components/CommandView';
 import ArchiveView from './components/ArchiveView';
 import AccountView from './components/AccountView';
 import AnalysisView from './components/AnalysisView';
+import SettingsView from './components/SettingsView';
 import Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
 import { nanoid } from 'nanoid';
@@ -33,13 +34,13 @@ export default function App() {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/Axion/sw.js')
-          .then(() => console.log("Axion PWA Service Worker Ready"))
+          .then(() => console.log("Axion PWA Installed"))
           .catch((err) => console.error("PWA Setup Halted", err));
       });
     }
   }, []);
 
-  // Synchronous Paint Hook: Eliminates Theme Flicker
+  // Fixed Wallpaper Engine Loading Cycles
   useLayoutEffect(() => {
     const customUrl = localStorage.getItem('custom_wallpaper_url');
     const customColor = localStorage.getItem('custom_wallpaper_color');
@@ -59,29 +60,21 @@ export default function App() {
        root.style.setProperty('--wallpaper-url', 'radial-gradient(circle at top left, #1e1b4b 0%, #0a0f18 100%)');
     }
     
-    if (customColor) {
-       root.style.setProperty('--theme-primary', customColor);
-    } else {
-       root.style.setProperty('--theme-primary', '#10B981');
-    }
-
-    root.style.setProperty('--glass-blur', `${savedBlur || 24}px`);
-    root.style.setProperty('--glass-opacity', savedOpacity || '0.45');
+    root.style.setProperty('--theme-primary', customColor || '#10B981');
+    root.style.setProperty('--glass-blur', `${savedBlur ? Number(savedBlur) : 24}px`);
+    root.style.setProperty('--glass-opacity', savedOpacity ? String(savedOpacity) : '0.45');
   }, []);
 
-  // Sync sliders to CSS
   useEffect(() => {
     if (!isLoaded) return;
     const root = document.documentElement;
     if (!root) return;
     root.style.setProperty('--glass-blur', `${glassBlur}px`);
     root.style.setProperty('--glass-opacity', String(glassOpacity));
-    
     localStorage.setItem('ios_glass_blur', String(glassBlur));
     localStorage.setItem('ios_glass_opacity', String(glassOpacity));
   }, [glassBlur, glassOpacity, isLoaded]);
 
-  // Load from local storage
   const safeParseArray = (dataStr: string | null) => {
     if (!dataStr) return [];
     try { const parsed = JSON.parse(dataStr); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
@@ -93,47 +86,30 @@ export default function App() {
         const savedPlan = localStorage.getItem(`pcbm_plan_${today}`);
         const savedLog = localStorage.getItem(`pcbm_log_${today}`);
         const savedSettings = localStorage.getItem('pcbm_settings');
-        
-        // Load Google Profile Picture if available
         const savedProfile = localStorage.getItem('gcal_profile');
-        if (savedProfile) {
-            const parsedProfile = JSON.parse(savedProfile);
-            if (parsedProfile && parsedProfile.picture) {
-                setProfileImg(parsedProfile.picture);
-            }
-        }
         
         setMorningPlan(safeParseArray(savedPlan));
         setLoggedSessions(safeParseArray(savedLog));
 
         if (savedSettings) {
             const parsed = JSON.parse(savedSettings);
-            if (!parsed.activeSubjects) parsed.activeSubjects = ['bio', 'phys', 'chem', 'math'];
-            if (!parsed.subjectGoals) parsed.subjectGoals = {};
-            setUserSettings(parsed);
+            if (parsed && typeof parsed === 'object') {
+                setUserSettings({
+                    name: parsed.name || '',
+                    className: parsed.className || '',
+                    activeSubjects: Array.isArray(parsed.activeSubjects) ? parsed.activeSubjects : ['bio', 'phys', 'chem', 'math'],
+                    subjectGoals: parsed.subjectGoals || {}
+                });
+            }
         }
-    } catch (e) {
-        console.error("Failed loading data", e);
-    }
+        
+        if (savedProfile) {
+            const parsedProfile = JSON.parse(savedProfile);
+            if (parsedProfile?.picture) setProfileImg(parsedProfile.picture);
+        }
+    } catch (e) { console.error(e); }
     setIsLoaded(true);
   }, []);
-
-  // Watch local profile changes to keep the picture synchronized instantly
-  useEffect(() => {
-    const checkProfilePic = () => {
-       const savedProfile = localStorage.getItem('gcal_profile');
-       if (savedProfile) {
-           try {
-               const parsed = JSON.parse(savedProfile);
-               if (parsed && parsed.picture && parsed.picture !== profileImg) {
-                   setProfileImg(parsed.picture);
-               }
-           } catch (e) {}
-       }
-    };
-    const interval = setInterval(checkProfilePic, 2000);
-    return () => clearInterval(interval);
-  }, [profileImg]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -274,7 +250,7 @@ export default function App() {
     const token = localStorage.getItem('gcal_token');
     
     if (!token) {
-        alert("Please sign in with Google inside the Settings panel to synchronize your calendar.");
+        alert("Please sign in with Google inside your Profile account pane to synchronize parameters.");
         setIsSyncing(false);
         return;
     }
@@ -292,46 +268,46 @@ export default function App() {
         if(successCount > 0) alert(`Successfully updated your calendar with ${successCount} study logs!`);
         else alert("Everything is currently up to date.");
     } catch(err: any) {
-        alert("Could not update calendar. Your connection session might need to be refreshed inside Settings.");
+        alert("Could not update calendar. Your connection session might need to be refreshed.");
     } finally {
         setIsSyncing(false);
     }
   };
 
-  // Enforced consistent name spellings and loaded matching system icons in front of page title bars
+  // Enforced unified Analysis spelling parameter alongside header symbols/icons
   const renderHeaderTitle = () => {
       switch(currentTab) {
           case 'archive': 
             return (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-zinc-400 text-[22px]">inventory_2</span>
                 <span>Archive</span>
               </div>
             );
           case 'account': 
             return (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-zinc-400 text-[22px]">badge</span>
                 <span>My Account</span>
               </div>
             );
           case 'analysis': 
             return (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-zinc-400 text-[22px]">analytics</span>
                 <span>Analysis</span>
               </div>
             );
           case 'settings': 
             return (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-zinc-400 text-[22px]">tune</span>
                 <span>Settings</span>
               </div>
             );
           default: 
             return (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-zinc-400 text-[22px]">dashboard</span>
                 <span>Tracker</span>
               </div>
@@ -339,9 +315,6 @@ export default function App() {
       }
   };
 
-  // =========================================================================
-  // REPLACE THE ENTIRE RETURN BLOCK AT THE BOTTOM OF YOUR src/App.tsx WITH This:
-  // =========================================================================
   return (
     <div className="flex min-h-screen max-w-full overflow-x-hidden relative text-zinc-100 bg-[#060a12]">
       
@@ -353,7 +326,6 @@ export default function App() {
         }} 
       />
 
-      {/* Sidebar menu container is now explicitly part of the dynamic glass engine */}
       <Sidebar 
         currentTab={currentTab} 
         setTab={setCurrentTab} 
@@ -398,11 +370,11 @@ export default function App() {
                  {profileImg ? (
                      <img src={profileImg} alt="User Avatar" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                  ) : (
-                     userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'U'
+                     userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'A'
                  )}
                </div>
                
-               {/* Setting indicator ring color matches extracted wallpaper primary tone */}
+               {/* Aesthetic floating micro gear matches target profile alignment requirements */}
                <div 
                  className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full border flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors shadow-md z-10 bg-zinc-900"
                  style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}
@@ -430,11 +402,14 @@ export default function App() {
               <AccountView 
                 userSettings={userSettings} 
                 setUserSettings={setUserSettings}
+              />
+            )}
+            {currentTab === 'settings' && (
+              <SettingsView 
                 glassBlur={glassBlur}
                 setGlassBlur={setGlassBlur}
                 glassOpacity={glassOpacity}
                 setGlassOpacity={setGlassOpacity}
-                setWallpaperStyle={setWallpaperStyle}
               />
             )}
         </main>
@@ -473,3 +448,4 @@ export default function App() {
       </div>
     </div>
   );
+}
