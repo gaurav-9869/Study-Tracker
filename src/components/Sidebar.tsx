@@ -1,61 +1,63 @@
 import React from 'react';
-import { getSubjectConfig, SubjectKey } from '../types';
+import { UserSettings } from '../types';
 
 interface SidebarProps {
   currentTab: string;
   setTab: (tab: string) => void;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  profileImg: string | null;
+  userSettings: UserSettings;
 }
 
-export default function Sidebar({ currentTab, setTab, isOpen, setIsOpen }: SidebarProps) {
-  const navItems = [
-    { id: 'command', icon: 'dashboard', label: 'Daily Tracker' },
-    { id: 'archive', icon: 'history', label: 'History Archive' },
-    { id: 'account', icon: 'settings', label: 'Settings' }
-  ];
+interface NavItem {
+  id: string;
+  label: string;
+  icon: string;
+}
 
-  // Helper to ensure we never crash when reading a subject name
-  const safeSubjectName = (key: string | undefined) => {
-      const config = getSubjectConfig(key);
-      return config ? config.name : 'Unknown Subject';
-  };
+export default function Sidebar({ currentTab, setTab, isOpen, setIsOpen, profileImg, userSettings }: SidebarProps) {
+  
+  // High-end workspace menu links tracking your active app sub-views
+  const navItems: NavItem[] = [
+    { id: 'command', label: 'Command Center', icon: 'dashboard' },
+    { id: 'planner', label: 'Planner', icon: 'calendar_today' },
+    { id: 'archive', label: 'History', icon: 'history' },
+    { id: 'analysis', label: 'Analysis', icon: 'analytics' },
+  ];
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile Backdrop Overlay Blur */}
       {isOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-fade-in"
         />
       )}
 
-      {/* Sidebar Container */}
-      <aside className={`fixed md:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        
-        <div className="h-full flex flex-col ios-glass-panel rounded-none md:rounded-r-[32px] border-y-0 border-l-0 overflow-hidden">
+      {/* Main Premium Frosted Sidebar Panel Container */}
+      <aside className={`fixed top-0 bottom-0 left-0 w-64 z-40 transition-all duration-500 border-r border-white/[0.06] bg-black/20 flex flex-col justify-between p-4 md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{
+          backdropFilter: 'blur(var(--glass-blur, 24px))',
+          WebkitBackdropFilter: 'blur(var(--glass-blur, 24px))',
+          backgroundColor: 'rgba(10, 15, 24, var(--glass-opacity, 0.45))'
+        }}
+      >
+        <div className="flex flex-col gap-8 w-full">
           
-          {/* Logo Header */}
-          <div className="p-8 pb-6 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/80 to-primary/20 flex items-center justify-center ios-glass-card-nested shadow-lg shadow-primary/20">
-              <span className="text-white font-bold text-xl tracking-tighter">A</span>
-            </div>
-            <div>
-              <h2 className="text-lg font-bold tracking-tight text-white/90">Axion</h2>
-              <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Workspace</p>
-            </div>
-            
-            <button 
-              onClick={() => setIsOpen(false)}
-              className="md:hidden ml-auto text-white/50 hover:text-white transition-colors"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
+          {/* Header Branding Area with your Embedded Geometric Vector Logo */}
+          <div className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.05]">
+            <svg className="w-8 h-8 text-primary transition-colors duration-500" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M76 164 L112 74 C115 66, 125 66, 128 74 L140 104" stroke="currentColor" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M164 164 L120 54 L102 96" stroke="#FFFFFF" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M92 126 L148 126" stroke="currentColor" strokeWidth="16" strokeLinecap="round" opacity="0.8"/>
+            </svg>
+            <span className="text-xl font-black tracking-wider text-white font-headline">AXION</span>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="flex-1 px-4 space-y-2 mt-4">
+          {/* Navigation Button Menu Items Grid */}
+          <nav className="flex flex-col gap-1.5 w-full">
             {navItems.map((item) => {
               const isActive = currentTab === item.id;
               return (
@@ -65,30 +67,55 @@ export default function Sidebar({ currentTab, setTab, isOpen, setIsOpen }: Sideb
                     setTab(item.id);
                     setIsOpen(false);
                   }}
-                  className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group
-                    ${isActive 
-                      ? 'bg-white/10 text-white ios-glass-card-nested shadow-inner border border-white/5' 
-                      : 'text-white/50 hover:bg-white/5 hover:text-white/90'
-                    }`}
+                  className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-500 text-sm font-semibold tracking-wide border cursor-pointer relative group overflow-hidden ${
+                    isActive 
+                      ? 'bg-primary/15 border-primary/30 text-primary font-bold shadow-sm' 
+                      : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'
+                  }`}
                 >
-                  <span className={`material-symbols-outlined transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                  {/* Active Indicator Strip */}
+                  {isActive && (
+                    <div className="absolute left-0 top-3 bottom-3 w-1 bg-primary rounded-r-md" />
+                  )}
+                  <span className={`material-symbols-outlined text-[20px] transition-transform duration-500 ${isActive ? 'text-primary scale-105' : 'text-zinc-500 group-hover:text-zinc-300 group-hover:scale-105'}`}>
                     {item.icon}
                   </span>
-                  <span className="font-semibold text-sm tracking-wide">{item.label}</span>
+                  <span>{item.label}</span>
                 </button>
               );
             })}
           </nav>
-
-          {/* User Status Footer */}
-          <div className="p-6 mt-auto border-t border-white/5">
-            <div className="flex items-center gap-3 ios-glass-card-nested p-3 rounded-2xl">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]"></div>
-              <span className="text-xs font-medium text-white/60 tracking-wider uppercase">System Active</span>
-            </div>
-          </div>
-
         </div>
+
+        {/* Minimalist Profile Footer Deck routing directly to Account settings */}
+        <div className="border-t border-white/[0.05] pt-4 mt-auto w-full">
+          <button 
+            onClick={() => {
+              setTab('account');
+              setIsOpen(false);
+            }}
+            className={`w-full flex items-center gap-3.5 p-2 rounded-xl border transition-all duration-500 cursor-pointer text-left hover:bg-white/[0.02] ${currentTab === 'account' ? 'bg-white/[0.04] border-white/10' : 'border-transparent'}`}
+          >
+            <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden bg-black/40 shadow-inner flex items-center justify-center shrink-0">
+               {profileImg ? (
+                   <img src={profileImg} alt="Avatar" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+               ) : (
+                   <span className="text-sm font-bold text-zinc-300 uppercase">
+                     {userSettings?.name ? userSettings.name.charAt(0).toUpperCase() : 'A'}
+                   </span>
+               )}
+            </div>
+            <div className="flex flex-col overflow-hidden">
+               <span className="text-sm font-bold text-white tracking-tight truncate">
+                 {userSettings?.name || 'Set Profile Name'}
+               </span>
+               <span className="text-[11px] text-zinc-500 truncate font-medium">
+                 {userSettings?.className || 'Manage Account'}
+               </span>
+            </div>
+          </button>
+        </div>
+
       </aside>
     </>
   );
