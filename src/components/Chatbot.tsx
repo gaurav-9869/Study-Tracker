@@ -52,29 +52,32 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
     setInput('');
     setIsLoading(true);
 
+    // =========================================================================
+    // REPLACE THE ENTIRE try { ... } BLOCK INSIDE handleSendMessage WITH THIS:
+    // =========================================================================
     try {
-      const contextPrompt = `
-        You are a supportive, direct personal study assistant. Talk naturally like a helpful classmate—never use complex technical jargon or rigid "AI phrases".
-        
-        Current context status:
-        - Planned items: ${JSON.stringify(morningPlan)}
-        - Completed session records: ${JSON.stringify(loggedSessions)}
+      const contextPrompt = `You are a supportive, direct personal study assistant. Talk naturally like a classmate—never use complex technical jargon or rigid "AI phrases".
+      
+Current context status:
+- Planned items: ${JSON.stringify(morningPlan || [])}
+- Completed session records: ${JSON.stringify(loggedSessions || [])}
 
-        Capabilities:
-        You can help organize timelines or log metrics. If the user describes a task to add or log, reply normally, but you MUST also add a raw JSON block at the very end of your response so the app can update the form values automatically.
+Capabilities:
+You can help organize timelines or log metrics. If the user describes a task to add or log, reply normally, but you MUST also add a raw JSON block at the very end of your response so the app can update the form values automatically.
 
-        JSON commands options (only include if requested by user text):
-        To add a plan: :::{"command": "add_plan", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "mins": number, "units": number}:::
-        To update a log: :::{"command": "add_log", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "activeMins": number, "distractionMins": number, "startPage": number, "endPage": number}:::
+JSON commands options:
+To add a plan: :::{"command": "add_plan", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "mins": number, "units": number}:::
+To update a log: :::{"command": "add_log", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "activeMins": number, "distractionMins": number, "startPage": number, "endPage": number}:::
 
-        Keep responses conversational, concise, and focused.
-      `;
+Keep responses conversational, concise, and focused.`;
 
-      // Corrected payload block structural formatting prevents connection drops
+      // Cleaned and compressed JSON escaping prevents payload formatting crashes
+      const cleanUserText = userText.replace(/[\"\\]/g, '\\$&').replace(/\n/g, ' ');
+
       const reqBody = {
         contents: [
           {
-            parts: [{ text: `${contextPrompt}\n\nUser request: "${userText}"` }]
+            parts: [{ text: `${contextPrompt}\n\nUser request: "${cleanUserText}"` }]
           }
         ]
       };
@@ -85,7 +88,7 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
         body: JSON.stringify(reqBody)
       });
 
-      if (!res.ok) throw new Error(`Status: ${res.status}`);
+      if (!res.ok) throw new Error(`Network response error: ${res.status}`);
 
       const data = await res.json();
       let assistantText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Let's try rephrasing that request.";
@@ -99,7 +102,7 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
           const commandData = JSON.parse(match[1].trim());
           
           if (commandData.command === 'add_plan') {
-             const newPlan: PlanItem = {
+             const newPlan = {
                  id: nanoid(),
                  subject: commandData.subject || 'bio',
                  topic: commandData.topic || 'Untitled Entry',
@@ -108,7 +111,7 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
                  targetMins: commandData.mins || 0,
                  status: 'pending'
              };
-             setMorningPlan(prev => [...prev, newPlan]);
+             setMorningPlan(prev => [...prev, newPlan as any]);
           }
           assistantText = assistantText.replace(jsonRegex, '').trim();
         } catch (jsonErr) {
@@ -118,6 +121,7 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
 
       setMessages(prev => [...prev, { sender: 'assistant', text: assistantText }]);
     } catch (err) {
+      console.error(err);
       setMessages(prev => [...prev, { sender: 'assistant', text: "Connection anomaly encountered. Please check your API key or rephrase your input sentence." }]);
     } finally {
       setIsLoading(false);
