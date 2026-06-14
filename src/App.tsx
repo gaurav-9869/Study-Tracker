@@ -4,7 +4,8 @@ import CommandView from './components/CommandView';
 import ArchiveView from './components/ArchiveView';
 import AccountView from './components/AccountView';
 import SettingsView from './components/SettingsView'; // Make sure the 'S' and 'V' match your filename perfectly
-import AnalysisView from './components/AnalysisView'; // Make sure the 'A' and 'V' match your filename perfectlyimport Sidebar from './components/Sidebar';
+import AnalysisView from './components/AnalysisView'; // Make sure the 'A' and 'V' match your filename perfectly
+import Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
 import { nanoid } from 'nanoid';
 
