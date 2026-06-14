@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
-import { nanoid } from 'nanoid';
-import { PlanItem, LogItem } from '../types';
+import { PlanItem, LogItem, getSubjectConfig } from '../types';
 
 interface ChatbotProps {
   morningPlan: PlanItem[];
@@ -10,149 +8,196 @@ interface ChatbotProps {
   setLoggedSessions: React.Dispatch<React.SetStateAction<LogItem[]>>;
 }
 
-const ChatInputBox = React.memo(({ onSend }: { onSend: (text: string) => void }) => {
-  const [chatInput, setChatInput] = useState('');
-  
-  return (
-    <form onSubmit={e => { e.preventDefault(); if (chatInput.trim()) { onSend(chatInput); setChatInput(''); } }} className="relative flex items-center">
-      <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-full py-3 px-5 pr-12 text-sm text-on-surface outline-none" placeholder="Command the system..." />
-      <button disabled={!chatInput.trim()} type="submit" className="absolute right-2 w-8 h-8 flex items-center justify-center bg-primary text-on-primary-fixed rounded-full transition-all"><span className="material-symbols-outlined text-[18px]">arrow_upward</span></button>
-    </form>
-  );
-});
+interface Message {
+  sender: 'user' | 'assistant';
+  text: string;
+}
 
 export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, setLoggedSessions }: ChatbotProps) {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', text: string}[]>([
-      { role: 'assistant', text: "Systems online. Log study blocks, assign revisions, or query performance metrics directly." }
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([
+    { sender: 'assistant', text: 'Hi! I can help you quickly adjust your study plans or organize your logs. Just type or paste your notes here.' }
   ]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-scroll context to bottom on new messages
   useEffect(() => {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, chatOpen]);
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isOpen]);
 
-  const handleChatSuggest = async (text: string) => {
-     setChatMessages(prev => [...prev, { role: 'user', text }]);
-     
-     const apiKey = localStorage.getItem('gemini_api_key');
-     if (!apiKey) {
-         setChatMessages(prev => [...prev, { role: 'assistant', text: "Error: Configure your Google AI Studio API key in the profile tab to enable chat pipelines." }]);
-         return;
-     }
+  // Adjust textarea frame height dynamically based on typed text volume
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
+    }
+  }, [input]);
 
-     try {
-         const ai = new GoogleGenAI({ apiKey });
-         const systemInstruction = `You are the backend operational core of a custom PCBM Study Tracker app.
-Analyze user text input and output data mutations exclusively inside a structured block parsing template using this precise configuration layout:
+  const handleSendMessage = async () => {
+    if (!input.trim() || isLoading) return;
 
-:::JSON_MUTATION
-{
-  "actions": [
-     {
-       "type": "ADD_PLAN" | "ADD_LOG",
-       "payload": {
-          "subject": "bio" | "phys" | "chem" | "math",
-          "topic": "string",
-          "sessionType": "Study" | "Revise" | "Exercise",
-          "revisionType": "Quick Recap" | "Standard Review" | "Deep Dive" | null,
-          "activeMins": number,
-          "distractionMins": number,
-          "recoveryMins": number,
-          "startPage": number | null,
-          "endPage": number | null,
-          "vsaCount": number | null,
-          "saCount": number | null,
-          "laCount": number | null,
-          "retentionScore": number,
-          "frictionAnalysis": "string",
-          "notes": "string"
-       }
-     }
-  ],
-  "reply": "Your conversational summary response here."
-}
-:::`;
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      alert("Please add your Gemini API Key in the Settings tab first.");
+      return;
+    }
 
-         const response = await ai.models.generateContent({
-             model: 'gemini-1.5-flash',
-             contents: `Context arrays:\nMorning Plan: ${JSON.stringify(morningPlan)}\nLogs: ${JSON.stringify(loggedSessions)}\n\nUser text input query:\n"${text}"`,
-             config: { systemInstruction }
-         });
+    const userText = input.trim();
+    setMessages(prev => [...prev, { sender: 'user', text: userText }]);
+    setInput('');
+    setIsLoading(true);
 
-         const resText = response.text || '';
-         if (resText.includes(':::JSON_MUTATION')) {
-             const jsonStr = resText.split(':::JSON_MUTATION')[1].split(':::')[0].trim();
-             const parsed = JSON.parse(jsonStr);
-             
-             if (parsed.actions && Array.isArray(parsed.actions)) {
-                 parsed.actions.forEach((act: any) => {
-                     if (act.type === 'ADD_PLAN') {
-                         setMorningPlan(p => [...p, { id: nanoid(), ...act.payload }]);
-                     } else if (act.type === 'ADD_LOG') {
-                         setLoggedSessions(l => [...l, {
-                             id: nanoid(),
-                             associatedPlanId: act.payload.planId || undefined,
-                             subject: act.payload.subject || 'bio',
-                             topic: act.payload.topic || 'General Documentation',
-                             sessionType: act.payload.sessionType || 'Study',
-                             revisionType: act.payload.revisionType || undefined,
-                             activeMins: Number(act.payload.activeMins) || 0,
-                             distractionMins: Number(act.payload.distractionMins) || 0,
-                             recoveryMins: Number(act.payload.recoveryMins) || 0,
-                             startPage: act.payload.startPage ? Number(act.payload.startPage) : undefined,
-                             endPage: act.payload.endPage ? Number(act.payload.endPage) : undefined,
-                             vsaCount: act.payload.vsaCount ? Number(act.payload.vsaCount) : undefined,
-                             saCount: act.payload.saCount ? Number(act.payload.saCount) : undefined,
-                             laCount: act.payload.laCount ? Number(act.payload.laCount) : undefined,
-                             retentionScore: act.payload.retentionScore ? Number(act.payload.retentionScore) : 5,
-                             frictionAnalysis: act.payload.frictionAnalysis || 'No major friction logged.',
-                             notes: act.payload.notes || '',
-                             synced: false
-                         }]);
-                     }
-                 });
-             }
-             setChatMessages(prev => [...prev, { role: 'assistant', text: parsed.reply || "Operations handled successfully." }]);
-         } else {
-             setChatMessages(prev => [...prev, { role: 'assistant', text: resText }]);
-         }
-     } catch (err) {
-         setChatMessages(prev => [...prev, { role: 'assistant', text: "Internal processing pipeline breakdown." }]);
-     }
+    try {
+      const contextPrompt = `
+        You are a supportive, direct personal study assistant. Talk naturally like a helpful classmate—never use complex technical jargon or rigid "AI phrases."
+        
+        Current context status:
+        - Planned items: ${JSON.stringify(morningPlan)}
+        - Completed session records: ${JSON.stringify(loggedSessions)}
+
+        Capabilities:
+        You can help the user organize their day or log metrics. If they describe a task to add or log, reply normally, but you MUST also add a raw JSON block at the very end of your response so the app can update the form values automatically.
+
+        JSON commands options (only include if requested by user text):
+        To add a plan: :::{"command": "add_plan", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "mins": number, "units": number}:::
+        To update a log: :::{"command": "add_log", "subject": "bio"|"phys"|"chem"|"math", "topic": "string", "activeMins": number, "distractionMins": number, "startPage": number, "endPage": number}:::
+
+        Keep responses conversational, concise, and focused.
+      `;
+
+      const reqBody = {
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `${contextPrompt}\n\nUser request: "${userText}"` }]
+          }
+        ]
+      };
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody)
+      });
+
+      if (!res.ok) throw new Error(`Network response error: ${res.status}`);
+
+      const data = await res.json();
+      let assistantText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't process that request. Let's try again.";
+
+      // --- ROBUST INTERCEPTION PIPELINE: Prevents Structural JSON Crashes ---
+      const jsonRegex = /:::(.*?):::/s;
+      const match = assistantText.match(jsonRegex);
+
+      if (match && match[1]) {
+        try {
+          const commandData = JSON.parse(match[1].trim());
+          
+          // Execute commands clean and transparently
+          if (commandData.command === 'add_plan') {
+             const newPlan: PlanItem = {
+                 id: nanoid(),
+                 subject: commandData.subject || 'bio',
+                 topic: commandData.topic || 'Untitled Topic',
+                 sessionType: 'Study',
+                 targetUnits: commandData.units || 0,
+                 targetMins: commandData.mins || 0
+             };
+             setMorningPlan(prev => [...prev, newPlan]);
+          }
+
+          // Clean command markers out of conversational view bubble text
+          assistantText = assistantText.replace(jsonRegex, '').trim();
+        } catch (jsonErr) {
+          console.error("Pipeline text extraction bypass triggered", jsonErr);
+        }
+      }
+
+      setMessages(prev => [...prev, { sender: 'assistant', text: assistantText }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { sender: 'assistant', text: "Sorry, the network connection dropped. Please double-check your key or try rephrasing your message." }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <>
-      <div className={`fixed bottom-24 right-4 md:bottom-6 md:right-6 w-[92vw] md:w-96 h-[500px] bg-surface-container border border-white/10 rounded-3xl shadow-2xl flex flex-col z-50 transition-all duration-300 origin-bottom-right ${chatOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}>
-        <div className="p-4 bg-surface-container-low border-b border-white/5 flex items-center justify-between rounded-t-3xl">
-          <div className="flex items-center gap-2"> 
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <h3 className="font-headline font-bold text-sm text-on-surface">AI Assistant Engine</h3>
-          </div>
-          <button className="text-on-surface-variant hover:text-on-surface transition-colors" onClick={() => setChatOpen(false)}>
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-          {chatMessages.map((msg, i) => (
-              <div key={i} className={`max-w-[80%] p-3 rounded-2xl border ${msg.role === 'assistant' ? 'self-start bg-surface-container-lowest border-white/5 rounded-tl-none' : 'self-end bg-primary/20 border-primary/20 rounded-tr-none'}`}>
-                <p className="text-sm text-on-surface-variant whitespace-pre-line">{msg.text}</p>
-              </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-
-        <div className="p-4 bg-surface-container-lowest/50 border-t border-white/10">
-          <ChatInputBox onSend={handleChatSuggest} />
-        </div>
-      </div>
-
-      <button onClick={() => setChatOpen(!chatOpen)} className="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-primary-container text-on-primary-fixed shadow-md flex items-center justify-center fixed bottom-6 right-6 z-40 transition-all">
-         <span className="material-symbols-outlined text-2xl">{chatOpen ? 'forum' : 'smart_toy'}</span>
+      {/* Floating Chat Trigger Bubble */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer z-50"
+      >
+        <span className="material-symbols-outlined text-[24px]">{isOpen ? 'close' : 'chat_bubble'}</span>
       </button>
+
+      {/* Slide-out Glass Chat Drawer Panel */}
+      {isOpen && (
+        <div className="fixed bottom-24 right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[500px] ios-glass-panel flex flex-col overflow-hidden z-50 animate-ios-fade-in bg-opacity-80">
+          
+          {/* Header Panel */}
+          <div className="p-4 border-b border-white/5 bg-black/20 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300">Study Assistant</h3>
+          </div>
+
+          {/* Message Stream */}
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+            {messages.map((msg, idx) => (
+              <div 
+                key={idx} 
+                className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${
+                  msg.sender === 'user' 
+                    ? 'bg-primary text-white ml-auto rounded-tr-none shadow-md' 
+                    : 'bg-white/5 text-zinc-200 mr-auto rounded-tl-none border border-white/5'
+                }`}
+              >
+                {msg.text}
+              </div>
+            ))}
+            {isLoading && (
+              <div className="bg-white/5 text-zinc-400 mr-auto rounded-2xl rounded-tl-none border border-white/5 p-3.5 text-xs font-medium flex items-center gap-2">
+                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                 <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Smart Expanding Input Tray */}
+          <div className="p-3 border-t border-white/5 bg-black/20 flex items-end gap-2">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder="Ask a question or adjust your dashboard..."
+              className="flex-1 bg-black/40 border border-white/5 focus:border-primary/40 rounded-xl px-3.5 py-2.5 text-sm outline-none text-white transition-colors resize-none font-medium max-h-[140px] leading-normal"
+            />
+            <button 
+              onClick={handleSendMessage}
+              disabled={!input.trim() || isLoading}
+              className="p-2.5 bg-primary disabled:opacity-30 disabled:scale-100 text-white rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+            >
+              <span className="material-symbols-outlined text-[18px]">send</span>
+            </button>
+          </div>
+
+        </div>
+      )}
     </>
   );
 }
-
