@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserSettings, getSubjectConfig } from '../types';
 
 declare var google: any;
@@ -13,6 +13,50 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
   const [userProfile, setUserProfile] = useState<{name: string, picture: string, email: string} | null>(null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  const silentRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchUserProfile = async (token: string) => {
+      try {
+          const res = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+              headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+              const data = await res.json();
+              setUserProfile(data);
+              localStorage.setItem('gcal_profile', JSON.stringify(data));
+          }
+      } catch (err) { console.error("Failed to fetch profile", err); }
+  };
+
+  // Silent token refresh — runs every 45 minutes to keep session alive
+  const startSilentRefresh = (clientId: string) => {
+      if (silentRefreshRef.current) clearInterval(silentRefreshRef.current);
+      silentRefreshRef.current = setInterval(() => {
+          try {
+              const client = google.accounts.oauth2.initTokenClient({
+                  client_id: clientId,
+                  scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+                  prompt: '',
+                  callback: (response: any) => {
+                      if (!response.error && response.access_token) {
+                          localStorage.setItem('gcal_token', response.access_token);
+                          localStorage.setItem('gcal_token_expires', String(Date.now() + response.expires_in * 1000));
+                          setHasToken(true);
+                      } else {
+                          // Session truly expired — clear and show login button
+                          localStorage.removeItem('gcal_token');
+                          localStorage.removeItem('gcal_token_expires');
+                          setHasToken(false);
+                          if (silentRefreshRef.current) clearInterval(silentRefreshRef.current);
+                      }
+                  },
+              });
+              client.requestAccessToken();
+          } catch (e) {
+              console.error("Silent refresh failed", e);
+          }
+      }, 45 * 60 * 1000); // every 45 minutes
+  };
 
   useEffect(() => {
      const token = localStorage.getItem('gcal_token');
@@ -28,6 +72,11 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
          } else {
              fetchUserProfile(token);
          }
+         // Start silent refresh if already logged in
+         const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
+         if (clientId && clientId !== 'your_google_client_id_here') {
+             startSilentRefresh(clientId);
+         }
      } else {
          if (token) {
              localStorage.removeItem('gcal_token');
@@ -35,24 +84,16 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
          }
          setHasToken(false);
      }
+
+     // Cleanup interval on unmount
+     return () => {
+         if (silentRefreshRef.current) clearInterval(silentRefreshRef.current);
+     };
   }, []);
 
   const handleGeminiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setGeminiKey(e.target.value);
       localStorage.setItem('gemini_api_key', e.target.value);
-  };
-
-  const fetchUserProfile = async (token: string) => {
-      try {
-          const res = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
-              headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.ok) {
-              const data = await res.json();
-              setUserProfile(data);
-              localStorage.setItem('gcal_profile', JSON.stringify(data));
-          }
-      } catch (err) { console.error("Failed to fetch profile", err); }
   };
 
   const handleConnect = () => {
@@ -74,6 +115,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
                      localStorage.setItem('gcal_token_expires', String(Date.now() + response.expires_in * 1000));
                      setHasToken(true);
                      fetchUserProfile(response.access_token);
+                     startSilentRefresh(clientId);
                  }
              },
          });
@@ -84,8 +126,10 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
   const handleDisconnect = () => {
       localStorage.removeItem('gcal_token');
       localStorage.removeItem('gcal_profile');
+      localStorage.removeItem('gcal_token_expires');
       setHasToken(false);
       setUserProfile(null);
+      if (silentRefreshRef.current) clearInterval(silentRefreshRef.current);
   };
 
   const exportData = () => {
@@ -122,7 +166,6 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
 
   return (
     <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto text-zinc-100">
-        {/* Uniform neutral glass panel styling */}
         <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 sm:p-10 flex flex-col gap-10 shadow-2xl">
              
              {/* SECTION 1: USER IDENTITY */}
@@ -188,8 +231,51 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
                     </div>
                  </div>
              </div>
-             
-             {/* SECTION 3: CLOUD & LOCAL DATA */}
+
+             {/* SECTION 3: SYLLABUS PAGE TOTALS */}
+             <div className="flex flex-col gap-5 border-b border-white/10 pb-8">
+                 <div>
+                     <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
+                         <span className="material-symbols-outlined text-[18px]">menu_book</span> Syllabus Page Totals
+                     </h3>
+                     <p className="text-[12px] text-zinc-400 mt-2 leading-relaxed">
+                         Enter the total number of pages in your syllabus for each subject. This powers the pace predictor and completion estimate in the Analysis tab.
+                     </p>
+                 </div>
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     {allKnownSubjects.map(sub => {
+                         const conf = getSubjectConfig(sub);
+                         const currentVal = userSettings.subjectPageTotals?.[sub] || '';
+                         return (
+                             <div key={sub} className="flex flex-col gap-2">
+                                 <label className="text-xs font-bold uppercase tracking-wider" style={{ color: conf.color }}>
+                                     {conf.name}
+                                 </label>
+                                 <div className="relative">
+                                     <input
+                                         type="number"
+                                         min="0"
+                                         value={currentVal}
+                                         onChange={e => setUserSettings(prev => ({
+                                             ...prev,
+                                             subjectPageTotals: {
+                                                 ...prev.subjectPageTotals,
+                                                 [sub]: Number(e.target.value)
+                                             }
+                                         }))}
+                                         className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-white/30 transition-colors font-mono"
+                                         placeholder="e.g. 800"
+                                         style={{ borderColor: currentVal ? `${conf.color}40` : undefined }}
+                                     />
+                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 font-bold uppercase">pg</span>
+                                 </div>
+                             </div>
+                         );
+                     })}
+                 </div>
+             </div>
+
+             {/* SECTION 4: CLOUD & LOCAL DATA */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div className="flex flex-col gap-4">
                      <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
@@ -207,7 +293,13 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
                              <div>
                                  <h4 className="font-bold text-zinc-100 text-base">{userProfile ? userProfile.name : 'Disconnected'}</h4>
                                  <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
-                                     {hasToken ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> {userProfile?.email}</> : 'Requires Google OAuth'}
+                                     {hasToken ? (
+                                         <>
+                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                             {userProfile?.email}
+                                             <span className="ml-1 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-bold">AUTO-REFRESH ON</span>
+                                         </>
+                                     ) : 'Requires Google OAuth'}
                                  </p>
                              </div>
                          </div>
