@@ -18,7 +18,8 @@ export default function App() {
       name: '',
       className: '',
       activeSubjects: ['bio', 'phys', 'chem', 'math'],
-      subjectGoals: {}
+      subjectGoals: {},
+      subjectPageTotals: {}
   });
 
   const [isLoaded, setIsLoaded] = useState(false);
@@ -98,7 +99,8 @@ export default function App() {
                     name: parsed.name || '',
                     className: parsed.className || '',
                     activeSubjects: Array.isArray(parsed.activeSubjects) ? parsed.activeSubjects : ['bio', 'phys', 'chem', 'math'],
-                    subjectGoals: parsed.subjectGoals || {}
+                    subjectGoals: parsed.subjectGoals || {},
+                    subjectPageTotals: parsed.subjectPageTotals || {}
                 });
             }
         }
@@ -152,7 +154,7 @@ export default function App() {
 
     for (const schedule of datesToSchedule) {
         const dateStr = getLocalDateString(schedule.offset);
-        const endStr = getLocalDateString(schedule.offset + 1); 
+        const endStr = getLocalDateString(schedule.offset + 1);
         const eventHash = `pcbmlog_${log.id}_${schedule.offset}`;
         
         try {
@@ -337,7 +339,7 @@ export default function App() {
 
       <div className={`flex-1 flex flex-col transition-all duration-300 relative z-10 md:ml-64 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
         
-        {/* Top Header Bar: Restored to strict uniform frosted glass alignment */}
+        {/* Top Header Bar */}
         <header 
           className="ios-glass-panel rounded-t-none rounded-b-[24px] border-x-0 border-t-0 flex justify-between items-center w-[calc(100%-2rem)] mx-4 mt-4 px-6 py-4 sticky top-0 z-50 transition-all duration-500"
           style={{
@@ -373,8 +375,6 @@ export default function App() {
                      userSettings.name ? userSettings.name.charAt(0).toUpperCase() : 'A'
                  )}
                </div>
-               
-               {/* Aesthetic floating micro gear matches target profile alignment requirements */}
                <div 
                  className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full border flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors shadow-md z-10 bg-zinc-900"
                  style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}
@@ -397,7 +397,7 @@ export default function App() {
               />
             )}
             {currentTab === 'archive' && <ArchiveView />}
-            {currentTab === 'analysis' && <AnalysisView loggedSessions={loggedSessions} />}
+            {currentTab === 'analysis' && <AnalysisView loggedSessions={loggedSessions} userSettings={userSettings} />}
             {currentTab === 'account' && (
               <AccountView 
                 userSettings={userSettings} 
@@ -414,7 +414,7 @@ export default function App() {
             )}
         </main>
 
-        {/* Restore Calendar Sync Button Tray: Frosted and color-synced */}
+        {/* Calendar Sync Footer */}
         {currentTab === 'command' && (
             <footer 
               className="ios-glass-panel rounded-b-none rounded-t-[28px] border-x-0 border-b-0 w-[calc(100%-2rem)] mx-4 py-4 flex flex-col justify-center items-center gap-3 mt-auto transition-all duration-500"
