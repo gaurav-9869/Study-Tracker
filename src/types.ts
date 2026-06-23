@@ -6,8 +6,8 @@ export interface PlanItem {
   subject: SubjectKey;
   topic: string;
   sessionType: SessionMode;
-  targetMins: number;
   targetUnits?: number; // pages or questions
+  targetMins: number;
   status: 'pending' | 'completed';
 }
 
@@ -29,6 +29,7 @@ export interface LogItem {
   laCount?: number;
   notes: string;
   frictionAnalysis?: string; // Explicitly records bottleneck items
+  tinyWin?: string; // Optional: one small change / next session intention
   scratchpadImage?: string; // Captures and retains full-screen Base64 canvas drawings
   isMissed?: boolean;
   synced?: boolean;
@@ -39,6 +40,7 @@ export interface UserSettings {
   className: string;
   activeSubjects: SubjectKey[];
   subjectGoals: Record<string, string>;
+  subjectPageTotals: Record<string, number>; // Total syllabus pages per subject
 }
 
 export interface SubjectConfig {
