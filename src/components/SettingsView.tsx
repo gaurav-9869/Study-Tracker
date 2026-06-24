@@ -16,10 +16,18 @@ export default function SettingsView({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Goal #6: Algorithmic Color Extraction Engine
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+
+      // Wallpaper size guard — base64 encoding inflates size by ~33%,
+      // so a 1MB image becomes ~1.3MB in localStorage. Warn and stop early.
+      const ONE_MB = 1 * 1024 * 1024;
+      if (file.size > ONE_MB) {
+          alert(`Image is too large (${(file.size / ONE_MB).toFixed(1)} MB). Please use an image under 1 MB to avoid storage issues. You can compress it at squoosh.app first.`);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+      }
 
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -71,7 +79,6 @@ export default function SettingsView({
 
   return (
     <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto text-zinc-100">
-        {/* Goal #7 & #8: Uniform, neutral panel styling without the blue tint */}
         <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 sm:p-10 flex flex-col gap-10 shadow-2xl">
              
              <div className="flex flex-col gap-5 border-b border-white/10 pb-8">
@@ -82,7 +89,7 @@ export default function SettingsView({
                  <div className="flex flex-col gap-4">
                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Adaptive Wallpaper Engine</label>
                      <p className="text-[12px] text-zinc-400 max-w-xl leading-relaxed">
-                         Upload an image. The internal canvas engine will analyze the image data and automatically re-render the application's primary accents to match the dominant color scheme.
+                         Upload an image under 1 MB. The internal canvas engine will analyze the image data and automatically re-render the application's primary accents to match the dominant color scheme.
                      </p>
                      
                      <input 
@@ -101,7 +108,6 @@ export default function SettingsView({
                      </button>
                  </div>
 
-                 {/* Goal #10 & #11: Repaired Background Blur Depth Sliders */}
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6 bg-black/20 p-6 rounded-2xl border border-white/5">
                      <div className="flex flex-col gap-3">
                          <div className="flex justify-between items-center text-xs">
