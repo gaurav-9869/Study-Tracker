@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PlanItem, LogItem, getSubjectConfig } from '../types';
-import { nanoid } from 'nanoid'; // Goal #12: Added missing import to fix unhandled reference crash!
+import { nanoid } from 'nanoid';
 
 interface ChatbotProps {
   morningPlan: PlanItem[];
@@ -52,16 +52,11 @@ export default function Chatbot({ morningPlan, setMorningPlan, loggedSessions, s
     setInput('');
     setIsLoading(true);
 
-    // =========================================================================
-    // REPLACE ONLY THE try BLOCK INSIDE handleSendMessage WITH THIS CLAMPED CODE:
-    // =========================================================================
     try {
-      // Step 1: Escape special string tokens safely to prevent text payload fragmentation
       const safePlanText = JSON.stringify(morningPlan || []).replace(/[\/\\]/g, '');
       const safeLogText = JSON.stringify(loggedSessions || []).replace(/[\/\\]/g, '');
       const safeUserText = userText.replace(/["'\\]/g, ' ').replace(/[\r\n]/g, ' ');
 
-      // Step 2: Formulate a streamlined prompt context structure
       const operationalPrompt = `You are a supportive, direct study assistant classmates style. Avoid robotic jargon.
 Current items: Plans: ${safePlanText} | Records: ${safeLogText}
 If user requests updates, append standard commands:
@@ -70,7 +65,6 @@ To update a log: :::{"command": "add_log", "subject": "bio"|"phys"|"chem"|"math"
 
 User input message: "${safeUserText}"`;
 
-      // Step 3: Standardize the exact request packet layout structure
       const reqBody = {
         contents: [
           {
@@ -96,14 +90,13 @@ User input message: "${safeUserText}"`;
       const data = await res.json();
       let assistantText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Let's try rephrasing that request.";
 
-      // Text parsing gate
       const jsonRegex = /:::(.*?):::/s;
       const match = assistantText.match(jsonRegex);
 
       if (match && match[1]) {
         try {
           const commandData = JSON.parse(match[1].trim());
-          
+
           if (commandData.command === 'add_plan') {
              const newPlan = {
                  id: nanoid(),
@@ -116,6 +109,27 @@ User input message: "${safeUserText}"`;
              };
              setMorningPlan(prev => [...prev, newPlan as any]);
           }
+
+          // Fixed: add_log was parsed but never saved — now creates a real LogItem
+          if (commandData.command === 'add_log') {
+             const newLog: LogItem = {
+                 id: nanoid(),
+                 subject: commandData.subject || 'bio',
+                 topic: commandData.topic || 'Untitled Session',
+                 sessionType: 'Study',
+                 activeMins: commandData.activeMins || 0,
+                 distractionMins: commandData.distractionMins || 0,
+                 recoveryMins: 0,
+                 retentionScore: commandData.retentionScore || 5,
+                 startPage: commandData.startPage || undefined,
+                 endPage: commandData.endPage || undefined,
+                 notes: commandData.notes || '',
+                 frictionAnalysis: commandData.frictionPoint || undefined,
+                 synced: false
+             };
+             setLoggedSessions(prev => [...prev, newLog]);
+          }
+
           assistantText = assistantText.replace(jsonRegex, '').trim();
         } catch (jsonErr) {
           console.error("JSON bypass handled", jsonErr);
@@ -140,7 +154,7 @@ User input message: "${safeUserText}"`;
         <span className="material-symbols-outlined text-[24px]">{isOpen ? 'close' : 'chat_bubble'}</span>
       </button>
 
-      {/* Slide-out Glass Chat Drawer Panel with smooth animation states toggled via open conditions */}
+      {/* Slide-out Glass Chat Drawer Panel */}
       <div 
         className={`fixed bottom-24 right-6 w-[calc(100vw-2rem)] sm:w-[380px] h-[480px] bg-black/40 backdrop-blur-md border border-white/10 flex flex-col overflow-hidden z-50 rounded-[28px] shadow-2xl transition-all duration-300 cubic-bezier(0.16, 1, 0.3, 1) ${
           isOpen ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
