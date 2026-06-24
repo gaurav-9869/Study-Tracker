@@ -28,7 +28,6 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
       } catch (err) { console.error("Failed to fetch profile", err); }
   };
 
-  // Silent token refresh — runs every 45 minutes to keep session alive
   const startSilentRefresh = (clientId: string) => {
       if (silentRefreshRef.current) clearInterval(silentRefreshRef.current);
       silentRefreshRef.current = setInterval(() => {
@@ -43,7 +42,6 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
                           localStorage.setItem('gcal_token_expires', String(Date.now() + response.expires_in * 1000));
                           setHasToken(true);
                       } else {
-                          // Session truly expired — clear and show login button
                           localStorage.removeItem('gcal_token');
                           localStorage.removeItem('gcal_token_expires');
                           setHasToken(false);
@@ -55,7 +53,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
           } catch (e) {
               console.error("Silent refresh failed", e);
           }
-      }, 45 * 60 * 1000); // every 45 minutes
+      }, 45 * 60 * 1000);
   };
 
   useEffect(() => {
@@ -63,7 +61,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
      const expires = localStorage.getItem('gcal_token_expires');
      const apiKey = localStorage.getItem('gemini_api_key');
      if (apiKey) setGeminiKey(apiKey);
-     
+
      if (token && expires && Date.now() < Number(expires)) {
          setHasToken(true);
          const profile = localStorage.getItem('gcal_profile');
@@ -72,7 +70,6 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
          } else {
              fetchUserProfile(token);
          }
-         // Start silent refresh if already logged in
          const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
          if (clientId && clientId !== 'your_google_client_id_here') {
              startSilentRefresh(clientId);
@@ -85,7 +82,6 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
          setHasToken(false);
      }
 
-     // Cleanup interval on unmount
      return () => {
          if (silentRefreshRef.current) clearInterval(silentRefreshRef.current);
      };
@@ -106,7 +102,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
          const client = google.accounts.oauth2.initTokenClient({
              client_id: clientId,
              scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-             prompt: 'consent', 
+             prompt: 'consent',
              callback: (response: any) => {
                  if (response.error) {
                      alert("Auth error: " + response.error);
@@ -137,7 +133,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
       for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && key.startsWith('pcbm_')) {
-             try { data[key] = JSON.parse(localStorage.getItem(key) || ''); } 
+             try { data[key] = JSON.parse(localStorage.getItem(key) || ''); }
              catch(e) { data[key] = localStorage.getItem(key); }
           }
       }
@@ -167,7 +163,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
   return (
     <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto text-zinc-100">
         <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[32px] p-6 sm:p-10 flex flex-col gap-10 shadow-2xl">
-             
+
              {/* SECTION 1: USER IDENTITY */}
              <div className="flex flex-col gap-5 border-b border-white/10 pb-8">
                  <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
@@ -176,27 +172,27 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                      <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Name</label>
-                        <input 
-                           type="text" value={userSettings.name} 
-                           onChange={e => setUserSettings(prev => ({...prev, name: e.target.value}))} 
-                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-white/30 transition-colors" 
+                        <input
+                           type="text" value={userSettings.name}
+                           onChange={e => setUserSettings(prev => ({...prev, name: e.target.value}))}
+                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-white/30 transition-colors"
                            placeholder="e.g. Rahul"
                         />
                      </div>
                      <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Target Class / Stream</label>
-                        <input 
-                           type="text" value={userSettings.className} 
-                           onChange={e => setUserSettings(prev => ({...prev, className: e.target.value}))} 
-                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-white/30 transition-colors" 
+                        <input
+                           type="text" value={userSettings.className}
+                           onChange={e => setUserSettings(prev => ({...prev, className: e.target.value}))}
+                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-white/30 transition-colors"
                            placeholder="e.g. 11th PCBM"
                         />
                      </div>
                      <div className="md:col-span-2">
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Gemini Protocol API Key</label>
-                        <input 
-                           type="password" value={geminiKey} onChange={handleGeminiKeyChange} 
-                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm font-mono outline-none focus:border-white/30 transition-colors" 
+                        <input
+                           type="password" value={geminiKey} onChange={handleGeminiKeyChange}
+                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3.5 text-sm font-mono outline-none focus:border-white/30 transition-colors"
                            placeholder="AI Analysis features require an active API key."
                         />
                      </div>
@@ -216,7 +212,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
                             const conf = getSubjectConfig(sub);
                             return (
                                <label key={sub} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'bg-white/20 border-white/30 text-white' : 'bg-black/20 border-white/5 text-zinc-400 hover:bg-black/40'}`}>
-                                   <input 
+                                   <input
                                       type="checkbox" className="hidden" checked={isChecked}
                                       onChange={(e) => {
                                           if (e.target.checked) setUserSettings(prev => ({ ...prev, activeSubjects: [...prev.activeSubjects, sub as any] }));
@@ -239,7 +235,7 @@ export default function AccountView({ userSettings, setUserSettings }: AccountVi
                          <span className="material-symbols-outlined text-[18px]">menu_book</span> Syllabus Page Totals
                      </h3>
                      <p className="text-[12px] text-zinc-400 mt-2 leading-relaxed">
-                         Enter the total number of pages in your syllabus for each subject. This powers the pace predictor and completion estimate in the Analysis tab.
+                         Enter the total number of pages in your syllabus for each subject. This powers the pace predictor in the Analysis tab.
                      </p>
                  </div>
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
