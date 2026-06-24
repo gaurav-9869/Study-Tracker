@@ -49,7 +49,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
   // Scratchpad Controls & Multi-Ink Color States
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [isEraserMode, setIsEraserMode] = useState(false);
-  const [activeInkColor, setActiveInkColor] = useState('#10B981'); // Tracks chosen palette color
+  const [activeInkColor, setActiveInkColor] = useState('#10B981');
   const [canvasDrawingData, setCanvasDrawingData] = useState<string | undefined>(undefined);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -98,11 +98,6 @@ export default function DailyLedger(props: DailyLedgerProps) {
 
   const handleSaveLog = () => {
       if (!props.logTopic.trim()) return;
-      
-      if (!frictionText.trim() || frictionText.trim().length < 4) {
-          alert("Please fill out the Friction Review box briefly before saving.");
-          return;
-      }
 
       const newLog: LogItem = {
           id: nanoid(),
@@ -120,7 +115,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
           vsaCount: props.logType === 'Exercise' && Number(props.logVsa) ? Number(props.logVsa) : undefined,
           saCount: props.logType === 'Exercise' && Number(props.logSa) ? Number(props.logSa) : undefined,
           laCount: props.logType === 'Exercise' && Number(props.logLa) ? Number(props.logLa) : undefined,
-          frictionAnalysis: frictionText.trim(),
+          frictionAnalysis: frictionText.trim() || undefined,
           notes: props.logNotes.trim(),
           synced: false,
           scratchpadImage: canvasDrawingData
@@ -292,7 +287,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
                        Auto-filled by AI extraction loop. Drag the slider to override.
                    </div>
                )}
-               <input 
+               <input
                    type="range" min="1" max="10" step="1" value={props.logRetention}
                    onChange={e => { props.setLogRetention(e.target.value); setIsAiPopulated(false); }}
                    className="w-full accent-amber-400 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer mt-1"
@@ -302,13 +297,13 @@ export default function DailyLedger(props: DailyLedgerProps) {
            <div className="flex flex-col gap-0 mt-2">
                <div className="flex items-center justify-between bg-zinc-900/60 p-4 rounded-t-2xl border border-white/10 border-b-0">
                    <label className="text-xs text-zinc-400 font-bold tracking-wider uppercase flex items-center gap-2">
-                       <span className="material-symbols-outlined text-[16px]">warning</span> Friction Analysis
+                       <span className="material-symbols-outlined text-[16px]">warning</span> Friction Analysis <span className="text-zinc-600 font-normal normal-case tracking-normal">(optional)</span>
                    </label>
                    <button type="button" onClick={() => setShowScratchpad(true)} className="flex items-center gap-1.5 text-[10px] bg-white/5 text-zinc-300 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors font-bold cursor-pointer border border-white/10">
                        <span className="material-symbols-outlined text-[14px]">draw</span> Open Scratchpad
                    </button>
                </div>
-               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="What concepts or hurdles cost you time? (Minimum 4 characters)..." className="w-full bg-black/40 border border-white/10 rounded-b-2xl p-4 text-sm outline-none text-white focus:border-white/20 transition-colors resize-none" />
+               <textarea rows={2} value={frictionText} onChange={e => setFrictionText(e.target.value)} placeholder="What concepts or hurdles cost you time? (Optional)..." className="w-full bg-black/40 border border-white/10 rounded-b-2xl p-4 text-sm outline-none text-white focus:border-white/20 transition-colors resize-none" />
            </div>
 
            <div className="flex flex-col gap-2">
@@ -326,11 +321,10 @@ export default function DailyLedger(props: DailyLedgerProps) {
                     
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 border-b border-white/10 bg-black/20">
                         <div className="flex items-center gap-2.5 text-zinc-300 font-bold text-sm uppercase tracking-wider">
-                            <span className="material-symbols-outlined text-primary">draw</span> 
+                            <span className="material-symbols-outlined text-primary">draw</span>
                             <span>Sketch Pad</span>
                         </div>
 
-                        {/* Multi-Color Choice Nodes */}
                         <div className="flex items-center gap-3 bg-black/40 px-4 py-2 rounded-2xl border border-white/5">
                             <span className="material-symbols-outlined text-zinc-500 text-xs">palette</span>
                             {[
@@ -348,20 +342,19 @@ export default function DailyLedger(props: DailyLedgerProps) {
                                         setActiveInkColor(cfg.color);
                                     }}
                                     className="w-5 h-5 rounded-full border border-white/20 transition-transform active:scale-95 cursor-pointer"
-                                    style={{ 
+                                    style={{
                                         backgroundColor: cfg.color,
-                                        transform: activeInkColor === cfg.color && !isEraserMode ? 'scale(1.2)' : 'scale(1)' 
+                                        transform: activeInkColor === cfg.color && !isEraserMode ? 'scale(1.2)' : 'scale(1)'
                                     }}
                                     title={cfg.label}
                                 />
                             ))}
                         </div>
 
-                        {/* Text replaced with premium icons */}
                         <div className="flex items-center gap-2.5">
-                            <button 
-                               type="button" 
-                               onClick={() => setIsEraserMode(!isEraserMode)} 
+                            <button
+                               type="button"
+                               onClick={() => setIsEraserMode(!isEraserMode)}
                                className={`p-2.5 rounded-xl border transition-all flex items-center justify-center cursor-pointer ${isEraserMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'}`}
                                title={isEraserMode ? "Switch to Drawing Pen" : "Switch to Eraser"}
                             >
@@ -370,18 +363,18 @@ export default function DailyLedger(props: DailyLedgerProps) {
                                 </span>
                             </button>
 
-                            <button 
-                                type="button" 
-                                onClick={clearCanvas} 
+                            <button
+                                type="button"
+                                onClick={clearCanvas}
                                 className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
                                 title="Clear Canvas"
                             >
                                 <span className="material-symbols-outlined text-[20px]">delete_forever</span>
                             </button>
 
-                            <button 
-                                type="button" 
-                                onClick={() => { syncCanvasDataString(); setShowScratchpad(false); }} 
+                            <button
+                                type="button"
+                                onClick={() => { syncCanvasDataString(); setShowScratchpad(false); }}
                                 className="bg-white text-black p-2.5 px-4 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md"
                             >
                                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
@@ -391,11 +384,11 @@ export default function DailyLedger(props: DailyLedgerProps) {
                     </div>
 
                     {/* Touch event blocks fix gesture distortion on your Xiaomi tablet */}
-                    <canvas 
-                        ref={canvasRef} 
+                    <canvas
+                        ref={canvasRef}
                         onTouchStart={(e) => {
                             if (!canvasRef.current) return;
-                            e.preventDefault(); 
+                            e.preventDefault();
                             isDrawing.current = true;
                             const rect = canvasRef.current.getBoundingClientRect();
                             const touch = e.touches[0];
@@ -438,7 +431,7 @@ export default function DailyLedger(props: DailyLedgerProps) {
                         }}
                         onPointerUp={() => { isDrawing.current = false; syncCanvasDataString(); }}
                         onPointerLeave={() => { isDrawing.current = false; }}
-                        className="flex-1 w-full bg-black cursor-crosshair touch-none" 
+                        className="flex-1 w-full bg-black cursor-crosshair touch-none"
                     />
                 </div>
             </div>
